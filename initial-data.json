@@ -1,0 +1,139 @@
+{
+  "exportedAt": "2026-07-20T12:34:25.746Z",
+  "version": 5,
+  "activeProjectId": "d0a8cbb1-8f35-46ca-836f-2b402da20589",
+  "projects": [
+    {
+      "id": "d0a8cbb1-8f35-46ca-836f-2b402da20589",
+      "travelDate": "2026-09-21",
+      "studyStart": "2026-07-20",
+      "origin": "Kassel-Wilhelmshöhe",
+      "routes": [
+        {
+          "id": "3e1d07a1-b710-480e-a41c-c4e8dbee56fe",
+          "code": "HAM",
+          "destination": "Hamburg Hbf",
+          "time": "08:37",
+          "train": "ICE 686"
+        },
+        {
+          "id": "44691591-a913-4ffb-9983-9a2c370dea2b",
+          "code": "BER",
+          "destination": "Berlin Hbf",
+          "time": "08:46",
+          "train": "ICE 378"
+        },
+        {
+          "id": "e897f762-6276-4d65-a719-faf5af8e71f3",
+          "code": "MUC",
+          "destination": "München Hbf",
+          "time": "08:23",
+          "train": "ICE 783"
+        },
+        {
+          "id": "7ce18f12-d110-4bb6-9d4c-1527ebcf4f66",
+          "code": "FRA",
+          "destination": "Frankfurt (M) Flughafen Fernbf",
+          "time": "08:13",
+          "train": "ICE 793"
+        },
+        {
+          "id": "7eca4312-e78a-486a-9f7b-8de35662ee65",
+          "code": "HAJ",
+          "destination": "Hannover Hbf",
+          "time": "08:13",
+          "train": "ICE 776"
+        }
+      ],
+      "observations": [
+        {
+          "id": "05161285-0d8e-4198-ae16-5b0a1ae84c93",
+          "queriedAt": "2026-07-20T14:23",
+          "travelDate": "2026-09-21",
+          "routeId": "7ce18f12-d110-4bb6-9d4c-1527ebcf4f66",
+          "code": "FRA",
+          "origin": "Kassel-Wilhelmshöhe",
+          "destination": "Frankfurt (M) Flughafen Fernbf",
+          "time": "08:13",
+          "train": "ICE 793",
+          "superPrice": 19.99,
+          "saverPrice": 24.99,
+          "price": 19.99,
+          "fareType": "Super Sparpreis",
+          "load": "",
+          "note": ""
+        },
+        {
+          "id": "d85a28f3-41db-48b7-bbb5-7c7ab9b40c71",
+          "queriedAt": "2026-07-20T14:25",
+          "travelDate": "2026-09-21",
+          "routeId": "7eca4312-e78a-486a-9f7b-8de35662ee65",
+          "code": "HAJ",
+          "origin": "Kassel-Wilhelmshöhe",
+          "destination": "Hannover Hbf",
+          "time": "08:13",
+          "train": "ICE 776",
+          "superPrice": 21.99,
+          "saverPrice": 28.99,
+          "price": 21.99,
+          "fareType": "Super Sparpreis",
+          "load": "",
+          "note": ""
+        },
+        {
+          "id": "509dd8c1-1bef-436e-809b-318c1e3c6ad5",
+          "queriedAt": "2026-07-20T14:26",
+          "travelDate": "2026-09-21",
+          "routeId": "e897f762-6276-4d65-a719-faf5af8e71f3",
+          "code": "MUC",
+          "origin": "Kassel-Wilhelmshöhe",
+          "destination": "München Hbf",
+          "time": "08:23",
+          "train": "ICE 783",
+          "superPrice": 49.99,
+          "saverPrice": 56.99,
+          "price": 49.99,
+          "fareType": "Super Sparpreis",
+          "load": "",
+          "note": ""
+        },
+        {
+          "id": "64720ba2-b23c-4b10-bd3c-8a9bf43dd0b5",
+          "queriedAt": "2026-07-20T14:27",
+          "travelDate": "2026-09-21",
+          "routeId": "3e1d07a1-b710-480e-a41c-c4e8dbee56fe",
+          "code": "HAM",
+          "origin": "Kassel-Wilhelmshöhe",
+          "destination": "Hamburg Hbf",
+          "time": "08:37",
+          "train": "ICE 686",
+          "superPrice": 31.99,
+          "saverPrice": 38.99,
+          "price": 31.99,
+          "fareType": "Super Sparpreis",
+          "load": "",
+          "note": ""
+        },
+        {
+          "id": "f7e16c96-2876-4c09-831c-53c90a2262a0",
+          "queriedAt": "2026-07-20T14:28",
+          "travelDate": "2026-09-21",
+          "routeId": "44691591-a913-4ffb-9983-9a2c370dea2b",
+          "code": "BER",
+          "origin": "Kassel-Wilhelmshöhe",
+          "destination": "Berlin Hbf",
+          "time": "08:46",
+          "train": "ICE 378",
+          "superPrice": 49.99,
+          "saverPrice": 56.99,
+          "price": 49.99,
+          "fareType": "Super Sparpreis",
+          "load": "",
+          "note": ""
+        }
+      ],
+      "createdAt": "2026-07-20T12:17:16.414Z",
+      "updatedAt": "2026-07-20T12:28:35.528Z"
+    }
+  ]
+}

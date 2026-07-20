@@ -1,155 +1,17 @@
-# Bahnpreis-Tracker Version 5
+# Bahnpreis-Tracker V8.0
 
-## Installation auf GitHub Pages
+Neuaufbau mit sichtbarer Versionsnummer, automatischer Entwurfssicherung,
+Preisverlauf, Screenshot-OCR sowie Backup und Wiederherstellung.
 
-1. ZIP entpacken.
-2. Im Repository `bahnpreis-tracker` alle enthaltenen Dateien hochladen.
-3. Bestehende Dateien überschreiben.
-4. Commit ausführen.
-5. Etwa zwei Minuten warten.
-6. Die GitHub-Pages-Seite in Safari öffnen und neu laden.
-7. Danach die Web-App vom Home-Bildschirm öffnen.
-
-## Neu in Version 5
-
-- Projekte werden ausschließlich nach Reisedatum geführt.
-- Das Reisedatum bleibt dauerhaft gespeichert.
-- Mehrere Projekte können parallel geführt werden.
-- Startbahnhof, Ziele, Abfahrtszeiten und Zugnummern werden je Projekt gespeichert.
-- Pro Verbindung wird nur der günstigste Preis plus Preisart und Auslastung erfasst.
-- Der DB-Button verwendet das jeweilige Reisedatum und die gespeicherte Abfahrtszeit.
-- Dashboard, Preisstatistik und Preisdiagramm.
-- CSV-Export pro Projekt.
-- Vollständiges JSON-Backup aller Projekte mit Wiederherstellung.
-
-## Speicherung
-
-Die Daten liegen automatisch im lokalen Speicher des Browsers auf dem jeweiligen Gerät.
-GitHub speichert nur die Programmdateien. Daher regelmäßig das vollständige Backup herunterladen.
-
-
-## Kalender-Erinnerungen
-
-In der App können drei tägliche Uhrzeiten eingestellt werden.
-Der Button „Kalender-Erinnerungen erstellen“ erzeugt eine Apple-kompatible ICS-Datei
-mit Zeitzone Europe/Berlin und Erinnerungsalarm.
-
-Auf iPhone/iPad:
-1. Datei erzeugen und herunterladen.
-2. In der Dateien-App lange auf die ICS-Datei drücken.
-3. „Teilen“ wählen.
-4. Am zuverlässigsten: an die eigene Mail-Adresse senden und die Anlage in Apple Mail öffnen.
-5. Dort „Alle hinzufügen“ wählen.
-
-Direktes Öffnen aus der Dateien-App wird von iOS je nach Version nicht immer angeboten.
-
-
-## Screenshot-Erkennung (Testversion)
-
-1. Bei einer Verbindung auf „Bei DB suchen“ tippen.
-2. Auf der DB-Seite einen Screenshot aufnehmen.
-3. Zurück zum Bahnpreis-Tracker wechseln.
-4. „Screenshot auswählen“ tippen und das gerade aufgenommene Bild auswählen.
-5. Die App ordnet den Screenshot automatisch der zuletzt geöffneten Verbindung zu.
-6. Preis und Preisart prüfen und in die Eingabemaske übernehmen.
-
-Die OCR läuft lokal im Browser. Beim ersten Import werden über das Internet die
-Tesseract-OCR-Komponenten und die deutschen Sprachdaten geladen. Die Erkennung ist
-eine Testfunktion und sollte vor dem Speichern kontrolliert werden.
-
-
-## Drei Tarifpreise pro Screenshot
-
-Die Screenshot-Erkennung übernimmt nun getrennt:
-
-- Super Sparpreis
-- Sparpreis
-- Flexpreis
-
-Die drei Werte werden je Verbindung und Abfragezeit separat gespeichert.
-Für ältere Datensätze bleibt der bisher gespeicherte günstigste Preis weiterhin lesbar.
-Die Auswertung kann zwischen den drei Tarifarten und dem jeweils günstigsten Preis umgeschaltet werden.
-
-Wichtig: Die OCR-Zuordnung bitte kurz prüfen. Wenn auf dem Screenshot zusätzliche
-Euro-Beträge stehen, kann eine manuelle Korrektur erforderlich sein.
-
-
-## Änderung: zwei Preise und korrigierter DB-Link
-
-Gespeichert werden nur noch:
-
-- Super Sparpreis
-- Sparpreis
-
-Der Flexpreis wurde entfernt, weil er für die Beobachtung nicht benötigt wird.
-
-Der DB-Link verwendet nun die aktuelle Fahrplan-Suche der Deutschen Bahn und
-übergibt Start, Ziel, Reisedatum und Abfahrtszeit. Die frühere URL über
-`/buchung/start` konnte einzelne Angaben ignorieren und dadurch eine falsche
-Verbindung anzeigen.
-
-Hinweis: Die DB-Seite öffnet die Suche zur gespeicherten Abfahrtszeit. Eine
-bestimmte Zugnummer lässt sich über einen stabilen öffentlichen DB-Link nicht
-zuverlässig direkt auswählen. Die gewünschte Verbindung sollte jedoch in der
-Trefferliste an der passenden Uhrzeit erscheinen.
-
-
-# Version 6 – DB-Monitor
-
-Jede Verbindung besitzt nun eine eigene kompakte Monitor-Karte mit:
-
-- direktem DB-Link
-- direktem Screenshot-Import
-- Super Sparpreis
-- Sparpreis
-- Auslastung
-- letzter gespeicherter Änderung
-
-Nur geänderte Karten werden als neue Beobachtung gespeichert. Bestehende JSON-
-Backups aus Version 5 können weiterhin wiederhergestellt werden.
+Die mitgelieferte Ausgangsdatei enthält das am 20.07.2026 exportierte Projekt
+mit fünf Verbindungen. Vorhandene Browserdaten aus älteren Versionen werden
+automatisch übernommen, sofern sie noch gespeichert sind.
 
 ## Aktualisierung
 
-1. In der bisherigen App ein JSON-Backup herunterladen.
-2. Diese ZIP entpacken.
-3. Alle enthaltenen Dateien bei GitHub in das Repository `bahnpreis-tracker`
-   hochladen und die vorhandenen Dateien ersetzen.
-4. `Commit changes` ausführen.
-5. Ein bis zwei Minuten warten und die Webseite in Safari neu laden.
-6. Zeigt die Home-Bildschirm-App noch die alte Version, diese Verknüpfung löschen
-   und die Webseite erneut über „Zum Home-Bildschirm“ hinzufügen.
-
-
-# Version 7 – automatische Entwurfssicherung
-
-Neu:
-
-- Jede Eingabe bei Super Sparpreis, Sparpreis und Auslastung wird nach rund
-  300 Millisekunden automatisch im Browser gesichert.
-- Beim Öffnen einer DB-Verbindung, beim Wechsel zu einer anderen Verbindung,
-  beim Neuladen und beim Schließen der App bleiben nicht abgeschlossene Werte
-  erhalten.
-- „Abfrage abschließen“ übernimmt die gesicherten Entwürfe in den Preisverlauf
-  und löscht anschließend nur die Entwürfe.
-- Die Bemerkung zur Abfrage wird ebenfalls automatisch zwischengespeichert.
-- Häufige Schreibweisen von „Frankfurt Flughafen“ werden für die DB-Suche
-  automatisch in „Frankfurt(M) Flughafen Fernbf“ umgewandelt.
-- Der DB-Link verwendet keine erfundenen Bahnhof-IDs mehr.
-
-Bestehende Projekte, Verbindungen, Beobachtungen und JSON-Backups aus Version 5
-und Version 6 bleiben kompatibel.
-
-
-# Version 7.1 – Reisedatum im DB-Link
-
-Der DB-Link übergibt das im Projekt gespeicherte Reisedatum und die jeweilige
-Abfahrtszeit nun ausdrücklich im von der DB-Suche verwendeten Format:
-
-`YYYY-MM-DDTHH:MM:SS`
-
-Beispiel für das aktuelle Projekt:
-
-`2026-09-21T08:37:00`
-
-Dadurch soll die DB-Seite nicht mehr auf das heutige Datum zurückfallen.
-Die automatische Entwurfssicherung aus Version 7 bleibt unverändert erhalten.
+1. ZIP entpacken.
+2. Im GitHub-Repository `bahnpreis-tracker` alle vorhandenen Dateien löschen.
+3. Alle Dateien aus diesem Ordner hochladen.
+4. `Commit changes` wählen.
+5. GitHub Pages nach etwa zwei Minuten direkt in Safari öffnen.
+6. Oben rechts muss `V8.0` stehen.

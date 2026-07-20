@@ -1,18 +1,9 @@
 {
-  "name": "Bahnpreis-Tracker Version 7.1",
-  "short_name": "Bahnmonitor",
-  "description": "DB-Preisbeobachtung mit automatischer Entwurfssicherung",
+  "name": "Bahnpreis-Tracker V8.0",
+  "short_name": "Bahnpreise",
   "start_url": "./",
-  "scope": "./",
   "display": "standalone",
-  "background_color": "#f3f5f8",
-  "theme_color": "#f6f7f9",
-  "icons": [
-    {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
-  ]
+  "background_color": "#f4f6f8",
+  "theme_color": "#f4f6f8",
+  "icons": []
 }

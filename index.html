@@ -2,273 +2,58 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f6f7f9">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Bahnpreise">
-  <title>Bahnpreis-Tracker Version 7.1</title>
-  <link rel="manifest" href="./manifest.json">
-  <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f6f8">
+  <title>Bahnpreis-Tracker V8.0</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="app-header">
+  <header class="topbar">
     <div>
+      <div class="eyebrow">PREISBEOBACHTUNG</div>
       <h1>Bahnpreis-Tracker</h1>
-      <p>Preisstudien nach Reisedatum</p>
     </div>
-    <button id="openProjectDialogBtn" class="button button-light">Projekte</button>
+    <span class="version">V8.0</span>
   </header>
 
   <main>
-    <section class="project-card">
-      <div class="project-card-top">
-        <div>
-          <span class="eyebrow">Aktuelles Projekt</span>
-          <h2 id="projectTitle">Kein Projekt</h2>
-          <p id="projectMeta">Bitte ein Projekt anlegen.</p>
-        </div>
-        <button id="editProjectBtn" class="icon-button" title="Projekt bearbeiten">✎</button>
+    <section class="projectbar card">
+      <div>
+        <label for="projectSelect">Projekt</label>
+        <select id="projectSelect"></select>
       </div>
-
-      <div class="progress-track" aria-hidden="true">
-        <div id="progressBar" class="progress-bar"></div>
-      </div>
-      <div class="progress-labels">
-        <span id="studyStartLabel">–</span>
-        <strong id="daysRemainingLabel">–</strong>
-        <span id="travelDateLabel">–</span>
-      </div>
-
-      <div class="metrics-grid">
-        <div class="metric"><span>Beobachtungen</span><strong id="metricObservations">0</strong></div>
-        <div class="metric"><span>Abfragetage</span><strong id="metricDays">0</strong></div>
-        <div class="metric"><span>Letzte Abfrage</span><strong id="metricLast">–</strong></div>
-        <div class="metric"><span>Ø pro Tag</span><strong id="metricAverage">0,0</strong></div>
+      <div class="travel-date">
+        <span>Reisetag</span>
+        <strong id="travelDate">–</strong>
       </div>
     </section>
 
-    <section class="card">
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">Neue Erfassung</span>
-          <h2>Preise prüfen</h2>
-        </div>
-        <span id="queryTimestampLabel" class="timestamp-badge">–</span>
+    <section id="routes" class="routes"></section>
+
+    <section class="card actions-card">
+      <button id="completeBtn" class="primary">Abfrage abschließen</button>
+      <div class="secondary-actions">
+        <button id="backupBtn">Vollständiges Backup</button>
+        <button id="restoreBtn">Backup wiederherstellen</button>
+        <input id="restoreInput" type="file" accept=".json,application/json" hidden>
       </div>
-
-      <label class="field">
-        <span>Bemerkung für diese Abfrage</span>
-        <input id="batchNote" type="text" placeholder="optional, z. B. Ferienbeginn">
-      </label>
-
-      <div id="screenshotImportPanel" class="screenshot-panel" hidden>
-        <div>
-          <span class="eyebrow">Zuletzt bei DB geöffnet</span>
-          <strong id="pendingScreenshotRoute">–</strong>
-          <p>Wähle jetzt den aufgenommenen Screenshot aus. Er wird automatisch dieser Verbindung zugeordnet.</p>
-        </div>
-        <button id="chooseScreenshotBtn" type="button" class="button button-primary">Screenshot auswählen</button>
-      </div>
-      <input id="screenshotFileInput" type="file" accept="image/*" hidden>
-
-      <div id="routesContainer" class="routes-stack"></div>
-
-      <div class="save-row">
-        <button id="saveObservationBtn" class="button button-primary button-large">Alle eingegebenen Preise speichern</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">Auswertung</span>
-          <h2>Preisverlauf</h2>
-        </div>
-        <div class="analysis-selectors">
-  <select id="analysisRouteSelect" class="compact-select"></select>
-  <select id="analysisFareSelect" class="compact-select">
-    <option value="cheapest">Günstigster Preis</option>
-    <option value="superPrice">Super Sparpreis</option>
-    <option value="saverPrice">Sparpreis</option>
-  </select>
-</div>
-      </div>
-
-      <div id="routeStats" class="route-stats-grid"></div>
-      <canvas id="priceChart" height="260"></canvas>
-    </section>
-
-
-    <section class="card">
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">Erinnerungen</span>
-          <h2>Kalender-Erinnerungen</h2>
-        </div>
-      </div>
-
-      <div class="reminder-grid">
-        <label class="field">
-          <span>Erste Erinnerung</span>
-          <input id="reminderTime1" type="time" value="09:00">
-        </label>
-        <label class="field">
-          <span>Zweite Erinnerung</span>
-          <input id="reminderTime2" type="time" value="14:00">
-        </label>
-        <label class="field">
-          <span>Dritte Erinnerung</span>
-          <input id="reminderTime3" type="time" value="20:00">
-        </label>
-      </div>
-
-      <button id="createCalendarRemindersBtn" class="button button-primary button-large">
-        Kalender-Erinnerungen erstellen
-      </button>
-      <p class="helper-text">
-        Die App erzeugt eine Apple-kompatible ICS-Datei mit täglich wiederkehrenden Terminen.
-        Auf dem iPhone die Datei anschließend über „Teilen“ an Mail senden oder in Safari öffnen und zum Kalender hinzufügen.
-      </p>
-    </section>
-
-    <section class="card">
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">Datensicherheit</span>
-          <h2>Backup & Export</h2>
-        </div>
-      </div>
-      <div class="button-grid">
-        <button id="exportProjectCsvBtn" class="button button-light">Projekt als CSV</button>
-        <button id="exportAllJsonBtn" class="button button-light">Vollständiges Backup</button>
-        <label class="button button-light file-button">
-          Backup wiederherstellen
-          <input id="importBackupInput" type="file" accept=".json,application/json">
-        </label>
-      </div>
-      <p class="helper-text">Die laufenden Daten werden automatisch auf diesem Gerät gespeichert. GitHub hostet nur die App.</p>
-    </section>
-
-    <section class="card">
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">Historie</span>
-          <h2>Letzte Erfassungen</h2>
-        </div>
-        <button id="deleteProjectDataBtn" class="button button-danger button-small">Projektdaten löschen</button>
-      </div>
-      <div id="historyList" class="history-list"></div>
+      <p id="globalStatus" class="status"></p>
     </section>
   </main>
 
-  <dialog id="projectDialog">
-    <form method="dialog" class="dialog-form">
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">Verwaltung</span>
-          <h2>Projekte</h2>
-        </div>
-        <button value="cancel" class="icon-button">×</button>
-      </div>
-      <div id="projectList" class="project-list"></div>
-      <button id="newProjectBtn" type="button" class="button button-primary">Neues Projekt anlegen</button>
-    </form>
+  <dialog id="historyDialog">
+    <div class="dialog-head">
+      <h2 id="historyTitle">Preisverlauf</h2>
+      <button id="closeHistory" aria-label="Schließen">×</button>
+    </div>
+    <canvas id="historyChart" width="700" height="320"></canvas>
+    <div id="historyTable"></div>
   </dialog>
 
-  <dialog id="projectEditDialog">
-    <form id="projectEditForm" class="dialog-form">
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">Projekt</span>
-          <h2 id="projectEditHeading">Neues Projekt</h2>
-        </div>
-        <button type="button" id="closeProjectEditBtn" class="icon-button">×</button>
-      </div>
+  <input id="screenshotInput" type="file" accept="image/*" hidden>
 
-      <div class="two-column-grid">
-        <label class="field">
-          <span>Reisedatum</span>
-          <input id="editTravelDate" type="date" required>
-        </label>
-        <label class="field">
-          <span>Beginn der Studie</span>
-          <input id="editStudyStart" type="date" required>
-        </label>
-      </div>
-
-      <label class="field">
-        <span>Startbahnhof</span>
-        <input id="editOrigin" type="text" value="Kassel-Wilhelmshöhe" required>
-      </label>
-
-      <div class="routes-editor-heading">
-        <h3>Verbindungen</h3>
-        <button id="addRouteBtn" type="button" class="button button-light button-small">Verbindung ergänzen</button>
-      </div>
-      <div id="routesEditor" class="routes-editor"></div>
-
-      <div class="dialog-actions">
-        <button type="button" id="cancelProjectEditBtn" class="button button-light">Abbrechen</button>
-        <button type="submit" class="button button-primary">Projekt speichern</button>
-      </div>
-    </form>
-  </dialog>
-
-
-  <dialog id="screenshotDialog">
-    <form class="dialog-form" onsubmit="return false;">
-      <div class="section-heading">
-        <div>
-          <span class="eyebrow">Screenshot-Erkennung</span>
-          <h2>Ergebnis prüfen</h2>
-        </div>
-        <button type="button" id="closeScreenshotDialogBtn" class="icon-button">×</button>
-      </div>
-
-      <div id="ocrProgressBox" class="ocr-progress-box">
-        <strong id="ocrProgressTitle">Screenshot wird gelesen …</strong>
-        <div class="progress-track"><div id="ocrProgressBar" class="progress-bar"></div></div>
-        <span id="ocrProgressText">OCR wird vorbereitet.</span>
-      </div>
-
-      <div id="ocrResultBox" hidden>
-        <div class="ocr-assignment">
-          Automatisch zugeordnet zu <strong id="ocrAssignedRoute">–</strong>
-        </div>
-        <img id="ocrPreviewImage" class="ocr-preview" alt="Ausgewählter Screenshot">
-
-        
-        <div class="three-price-grid">
-          <label class="field">
-            <span>Super Sparpreis</span>
-            <input id="ocrSuperPrice" inputmode="decimal" placeholder="z. B. 29,99">
-          </label>
-          <label class="field">
-            <span>Sparpreis</span>
-            <input id="ocrSaverPrice" inputmode="decimal" placeholder="z. B. 39,99">
-          </label>
-        </div>
-
-
-        <div id="ocrValidation" class="ocr-validation"></div>
-
-        <details class="ocr-details">
-          <summary>Erkannten Text anzeigen</summary>
-          <pre id="ocrRawText"></pre>
-        </details>
-
-        <div class="dialog-actions">
-          <button type="button" id="cancelOcrBtn" class="button button-light">Abbrechen</button>
-          <button type="button" id="applyOcrBtn" class="button button-primary">In Eingabemaske übernehmen</button>
-        </div>
-      </div>
-    </form>
-  </dialog>
-
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js"></script>
-  <script src="./app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
