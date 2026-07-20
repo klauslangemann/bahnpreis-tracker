@@ -1,4 +1,4 @@
-const VERSION = "8.2";
+const VERSION = "8.3";
 const DATA_KEY = "bahnpreis_tracker_v8_data";
 const DRAFT_KEY = "bahnpreis_tracker_v8_drafts";
 const OLD_KEYS = ["bahnpreis_tracker_v5_state", "bahnpreis_tracker_state"];
@@ -93,7 +93,7 @@ function render(){
 
 function routeHtml(p,r){
   const obs=(p.observations||[]).filter(o=>o.routeId===r.id).sort((a,b)=>observationTime(b.queriedAt)-observationTime(a.queriedAt));
-  const last=newestObservation(p,r.id);
+  const last=(p.lastQueries&&p.lastQueries[r.id])||newestObservation(p,r.id);
   const d=getDraft(p.id,r.id);
   const s=d?d.superPrice:(last?.superPrice??"");
   const sp=d?d.saverPrice:(last?.saverPrice??"");
@@ -147,16 +147,52 @@ function saveVisibleDraft(p,id){
 $("projectSelect").onchange=e=>{state.activeProjectId=e.target.value;saveState();render()};
 
 $("completeBtn").onclick=()=>{
-  const p=activeProject();let count=0;const now=new Date().toISOString();
+  const p=activeProject();
+  let count=0;
+  const now=new Date().toISOString();
+  p.lastQueries=p.lastQueries||{};
+
   p.routes.forEach(r=>{
-    saveVisibleDraft(p,r.id);const d=getDraft(p.id,r.id);if(!d)return;
-    const superPrice=parsePrice(d.superPrice),saverPrice=parsePrice(d.saverPrice);
+    saveVisibleDraft(p,r.id);
+    const d=getDraft(p.id,r.id);
+    if(!d)return;
+
+    const superPrice=parsePrice(d.superPrice);
+    const saverPrice=parsePrice(d.saverPrice);
     if(superPrice==null&&saverPrice==null&&!d.load)return;
-    const vals=[superPrice,saverPrice].filter(v=>v!=null),price=vals.length?Math.min(...vals):null;
-    p.observations.push({id:uid(),queriedAt:now,travelDate:p.travelDate,routeId:r.id,code:r.code,origin:p.origin,destination:r.destination,time:r.time,train:r.train,superPrice,saverPrice,price,fareType:price===superPrice?"Super Sparpreis":price===saverPrice?"Sparpreis":"",load:d.load||"",note:""});
-    clearDraft(p.id,r.id);count++;
+
+    const vals=[superPrice,saverPrice].filter(v=>v!=null);
+    const price=vals.length?Math.min(...vals):null;
+    const observation={
+      id:uid(),
+      queriedAt:now,
+      travelDate:p.travelDate,
+      routeId:r.id,
+      code:r.code,
+      origin:p.origin,
+      destination:r.destination,
+      time:r.time,
+      train:r.train,
+      superPrice,
+      saverPrice,
+      price,
+      fareType:price===superPrice?"Super Sparpreis":price===saverPrice?"Sparpreis":"",
+      load:d.load||"",
+      note:""
+    };
+
+    p.observations.push(observation);
+    p.lastQueries[r.id]=observation;
+    clearDraft(p.id,r.id);
+    count++;
   });
-  p.updatedAt=now;saveState();$("globalStatus").textContent=count?`${count} Verbindungen in den Verlauf übernommen.`:"Keine Eingaben vorhanden.";render();
+
+  p.updatedAt=now;
+  saveState();
+  render();
+  $("globalStatus").textContent=count
+    ?`${count} Verbindungen in den Verlauf übernommen.`
+    :"Keine Eingaben vorhanden.";
 };
 
 $("backupBtn").onclick=()=>{
