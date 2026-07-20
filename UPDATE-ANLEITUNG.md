@@ -1,21 +1,25 @@
-# Update auf GitHub einspielen
+# Version 4 auf GitHub aktualisieren
 
 1. ZIP-Datei entpacken.
-2. Im GitHub-Repository `bahnpreis-tracker` auf **Add file** klicken.
-3. **Upload files** wählen.
-4. Die Dateien aus diesem Ordner hochladen.
-5. GitHub fragt bei gleichnamigen Dateien nach keiner besonderen Bestätigung; sie werden im neuen Commit ersetzt.
-6. Unten auf **Commit changes** klicken.
-7. Etwa 1 bis 2 Minuten warten.
-8. Die App im Browser neu laden.
+2. Im Repository `bahnpreis-tracker` auf **Add file** → **Upload files**.
+3. Alle Dateien aus diesem Ordner hochladen.
+4. Unten auf **Commit changes** klicken.
+5. Etwa 1 bis 2 Minuten warten.
+6. Auf dem iPhone die App vollständig schließen.
+7. Die Website einmal in Safari öffnen und neu laden.
+8. Danach die App vom Home-Bildschirm erneut öffnen.
 
-Auf dem iPhone kann es wegen des Offline-Caches nötig sein:
-- App komplett schließen und neu öffnen,
-- oder die Website einmal direkt in Safari öffnen und neu laden.
+## Erinnerungen auf dem iPhone
 
-Neue Standardverbindungen:
-- Kassel-Wilhelmshöhe → Hamburg Hbf
-- Kassel-Wilhelmshöhe → Berlin Hbf
-- Kassel-Wilhelmshöhe → München Hbf
-- Kassel-Wilhelmshöhe → Frankfurt (M) Flughafen Fernbf
-- Kassel-Wilhelmshöhe → Hannover Hbf
+1. In der App drei Uhrzeiten auswählen.
+2. Auf **Kalender-Erinnerungen erstellen** tippen.
+3. Die Datei `bahnpreis-erinnerungen.ics` öffnen.
+4. Die drei wiederkehrenden Termine dem iPhone-Kalender hinzufügen.
+
+Die Erinnerung erscheint dann täglich zu den gewählten Zeiten.
+
+## Hinweis zu echten Push-Nachrichten
+
+Eine GitHub-Pages-App kann keine zeitgesteuerten Push-Nachrichten versenden, wenn sie geschlossen ist.
+Dafür wäre zusätzlich ein Push-Server nötig.
+Die Kalenderlösung funktioniert ohne zusätzlichen Server und ist auf dem iPhone zuverlässig.

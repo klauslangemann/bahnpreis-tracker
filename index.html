@@ -16,14 +16,14 @@
   <header>
     <div>
       <h1>Bahnpreis-Tracker</h1>
-      <p>Manuelle Preisbeobachtung für mehrere Verbindungen</p>
+      <p>Manuelle Preisbeobachtung</p>
     </div>
-    <button id="settingsBtn" class="secondary">Verbindungen</button>
+    <button id="settingsBtn" class="secondary small">Einstellungen</button>
   </header>
 
   <main>
     <section class="notice">
-      <strong>Hinweis:</strong> Daten werden lokal auf diesem Gerät gespeichert. Bitte regelmäßig CSV sichern.
+      <strong>Datensicherung:</strong> Bitte mindestens einmal pro Woche CSV sichern.
     </section>
 
     <section class="card">
@@ -38,34 +38,34 @@
         </label>
       </div>
       <label class="top-gap">
-        Bemerkung zur Abfrage
-        <input id="batchNote" type="text" placeholder="z. B. Ferienbeginn oder besonders hohe Nachfrage">
+        Bemerkung
+        <input id="batchNote" type="text" placeholder="z. B. Ferienbeginn, Streik, hohe Nachfrage">
       </label>
     </section>
 
     <form id="entryForm">
-      <section class="card">
-        <div class="entry-table-wrap">
-          <table class="entry-table">
-            <thead>
-              <tr>
-                <th>Verbindung</th>
-                <th>Super</th>
-                <th>Spar</th>
-                <th>Flex</th>
-                <th>Auslastung</th>
-              </tr>
-            </thead>
-            <tbody id="routes"></tbody>
-          </table>
-        </div>
-      </section>
+      <section id="routes" class="route-list"></section>
 
       <section class="card actions">
         <button type="submit" class="primary">Abfrage speichern</button>
-        <button type="button" id="clearInputsBtn" class="secondary">Eingaben leeren</button>
+        <button type="button" id="clearInputsBtn" class="secondary">Leeren</button>
       </section>
     </form>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Erinnerungen</h2>
+          <p>Drei tägliche iPhone-Kalendererinnerungen erzeugen</p>
+        </div>
+      </div>
+      <div class="grid three">
+        <label>Morgens<input id="reminder1" type="time" value="08:00"></label>
+        <label>Mittags<input id="reminder2" type="time" value="14:00"></label>
+        <label>Abends<input id="reminder3" type="time" value="20:00"></label>
+      </div>
+      <button id="calendarBtn" class="secondary full top-gap" type="button">Kalender-Erinnerungen erstellen</button>
+    </section>
 
     <section class="card">
       <div class="stats" id="stats"></div>
@@ -75,7 +75,7 @@
       <div class="section-head">
         <div>
           <h2>Preisverlauf</h2>
-          <p>Günstigster beobachteter Preis je Abfrage</p>
+          <p>Günstigster Preis je Abfrage</p>
         </div>
         <select id="chartRoute"></select>
       </div>
@@ -103,10 +103,9 @@
             <tr>
               <th>Abfrage</th>
               <th>Reise</th>
-              <th>Verbindung</th>
-              <th>Super</th>
-              <th>Spar</th>
-              <th>Flex</th>
+              <th>Code</th>
+              <th>Preis</th>
+              <th>Typ</th>
               <th>Auslastung</th>
               <th>Notiz</th>
               <th></th>
@@ -119,9 +118,9 @@
   </main>
 
   <dialog id="settingsDialog">
-    <form method="dialog" id="settingsForm">
+    <form method="dialog">
       <h2>Verbindungen bearbeiten</h2>
-      <p>Eine Verbindung pro Zeile.</p>
+      <p>Format: CODE|Ziel|Uhrzeit</p>
       <textarea id="routesText" rows="10"></textarea>
       <div class="dialog-actions">
         <button value="cancel" class="secondary">Abbrechen</button>
