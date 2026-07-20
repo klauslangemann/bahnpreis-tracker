@@ -1,5 +1,7 @@
 
 const STORAGE_KEY = "bahnpreis_tracker_v5_state";
+const DRAFT_KEY = "bahnpreis_tracker_v7_drafts";
+const DRAFT_NOTE_KEY = "bahnpreis_tracker_v7_batch_note";
 
 const DEFAULT_ROUTES = [
   { id: uid(), code: "HAM", destination: "Hamburg Hbf", time: "", train: "" },
@@ -29,7 +31,7 @@ function nowISO() {
 }
 
 function defaultState() {
-  return { version: 5, activeProjectId: null, projects: [] };
+  return { version: 7, activeProjectId: null, projects: [] };
 }
 
 function loadState() {
@@ -93,6 +95,77 @@ function daysBetween(a, b) {
   return Math.round(ms / 86400000);
 }
 
+
+function loadDrafts() {
+  try {
+    const value = JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}");
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function draftId(projectId, routeId) {
+  return `${projectId}::${routeId}`;
+}
+
+function getRouteDraft(projectId, routeId) {
+  return loadDrafts()[draftId(projectId, routeId)] || null;
+}
+
+function saveRouteDraft(projectId, routeId, values) {
+  const drafts = loadDrafts();
+  drafts[draftId(projectId, routeId)] = {
+    ...values,
+    updatedAt: new Date().toISOString()
+  };
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+}
+
+function clearRouteDraft(projectId, routeId) {
+  const drafts = loadDrafts();
+  delete drafts[draftId(projectId, routeId)];
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+}
+
+function hasDraftValues(draft) {
+  return !!draft && (
+    String(draft.superPrice || "").trim() !== "" ||
+    String(draft.saverPrice || "").trim() !== "" ||
+    String(draft.load || "").trim() !== ""
+  );
+}
+
+function normalizeStationName(value) {
+  const raw = String(value || "").trim();
+  const compact = raw.toLowerCase()
+    .replace(/[().,-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const aliases = new Map([
+    ["frankfurt flughafen", "Frankfurt(M) Flughafen Fernbf"],
+    ["frankfurt am main flughafen", "Frankfurt(M) Flughafen Fernbf"],
+    ["frankfurt main flughafen", "Frankfurt(M) Flughafen Fernbf"],
+    ["frankfurt airport", "Frankfurt(M) Flughafen Fernbf"],
+    ["frankfurt flughafen fernbahnhof", "Frankfurt(M) Flughafen Fernbf"],
+    ["frankfurt m flughafen fernbahnhof", "Frankfurt(M) Flughafen Fernbf"],
+    ["frankfurt m flughafen fernbf", "Frankfurt(M) Flughafen Fernbf"],
+    ["kassel wilhelmshöhe", "Kassel-Wilhelmshöhe"],
+    ["kassel wilhelmshoehe", "Kassel-Wilhelmshöhe"]
+  ]);
+
+  return aliases.get(compact) || raw;
+}
+
+function debounce(fn, delay = 350) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
 function renderAll() {
   renderProjectHeader();
   renderRoutes();
@@ -153,10 +226,21 @@ function renderRoutes() {
       .filter(o => o.routeId === route.id)
       .sort((a,b) => b.queriedAt.localeCompare(a.queriedAt))[0];
 
+    const draft = getRouteDraft(project.id, route.id);
+    const superValue = draft ? draft.superPrice ?? "" :
+      (last?.superPrice != null ? String(last.superPrice).replace(".", ",") : "");
+    const saverValue = draft ? draft.saverPrice ?? "" :
+      (last?.saverPrice != null ? String(last.saverPrice).replace(".", ",") : "");
+    const loadValue = draft ? draft.load ?? "" : (last?.load || "");
     const pendingHere = pending?.project?.id === project.id && pending?.route?.id === route.id;
+
     const lastText = last
       ? `${formatDateTime(last.queriedAt)} · SSP ${formatPrice(last.superPrice)} · SP ${formatPrice(last.saverPrice)}`
       : "Noch keine Beobachtung gespeichert";
+
+    const draftText = hasDraftValues(draft)
+      ? `✓ Entwurf automatisch gesichert${draft.updatedAt ? ` · ${formatDateTime(draft.updatedAt)}` : ""}`
+      : "";
 
     return `
       <article class="monitor-card ${pendingHere ? "is-pending" : ""}" data-monitor-card="${route.id}">
@@ -180,24 +264,24 @@ function renderRoutes() {
         <div class="monitor-prices">
           <label class="field">
             <span>Super Sparpreis</span>
-            <input inputmode="decimal" data-entry-super="${route.id}" value="${last?.superPrice != null ? String(last.superPrice).replace(".", ",") : ""}" placeholder="z. B. 29,99">
+            <input inputmode="decimal" data-entry-super="${route.id}" value="${escapeHtml(superValue)}" placeholder="z. B. 29,99">
           </label>
           <label class="field">
             <span>Sparpreis</span>
-            <input inputmode="decimal" data-entry-saver="${route.id}" value="${last?.saverPrice != null ? String(last.saverPrice).replace(".", ",") : ""}" placeholder="z. B. 39,99">
+            <input inputmode="decimal" data-entry-saver="${route.id}" value="${escapeHtml(saverValue)}" placeholder="z. B. 39,99">
           </label>
           <label class="field load-field">
             <span>Auslastung</span>
             <select data-entry-load="${route.id}">
               <option value="">–</option>
-              ${["gering","mittel","hoch","sehr hoch","ausgebucht"].map(v => `<option ${last?.load === v ? "selected" : ""}>${v}</option>`).join("")}
+              ${["gering","mittel","hoch","sehr hoch","ausgebucht"].map(v => `<option ${loadValue === v ? "selected" : ""}>${v}</option>`).join("")}
             </select>
           </label>
         </div>
 
         <div class="monitor-last">
-          <span>Letzte Änderung: <strong>${lastText}</strong></span>
-          <span data-dirty-label="${route.id}"></span>
+          <span>Letzte abgeschlossene Abfrage: <strong>${lastText}</strong></span>
+          <span class="autosave-status" data-dirty-label="${route.id}">${draftText}</span>
         </div>
       </article>`;
   }).join("");
@@ -210,12 +294,12 @@ function renderRoutes() {
         alert("Bitte zuerst eine Abfahrtszeit eintragen.");
         return;
       }
+      persistCardDraft(project, route.id, true);
       localStorage.setItem("bahnpreis_tracker_pending_route", JSON.stringify({
         projectId: project.id,
         routeId: route.id,
         openedAt: new Date().toISOString()
       }));
-      renderRoutes();
       window.open(buildDbUrl(project, route), "_blank", "noopener,noreferrer");
     });
   });
@@ -224,6 +308,7 @@ function renderRoutes() {
     button.addEventListener("click", () => {
       const route = project.routes.find(r => r.id === button.dataset.shotRouteId);
       if (!route) return;
+      persistCardDraft(project, route.id, true);
       localStorage.setItem("bahnpreis_tracker_pending_route", JSON.stringify({
         projectId: project.id,
         routeId: route.id,
@@ -234,21 +319,44 @@ function renderRoutes() {
     });
   });
 
+  const autosave = debounce((routeId) => persistCardDraft(project, routeId), 300);
+
   container.querySelectorAll("input,select").forEach(control => {
-    const mark = () => {
+    const routeId = control.dataset.entrySuper || control.dataset.entrySaver || control.dataset.entryLoad;
+    const markAndSave = () => {
       control.classList.add("changed");
-      const id = control.dataset.entrySuper || control.dataset.entrySaver || control.dataset.entryLoad;
-      const label = document.querySelector(`[data-dirty-label="${id}"]`);
-      if (label) label.textContent = "Noch nicht gespeichert";
+      const label = document.querySelector(`[data-dirty-label="${routeId}"]`);
+      if (label) label.textContent = "Wird automatisch gesichert …";
+      autosave(routeId);
     };
-    control.addEventListener("input", mark);
-    control.addEventListener("change", mark);
+    control.addEventListener("input", markAndSave);
+    control.addEventListener("change", markAndSave);
   });
 }
 
+function persistCardDraft(project, routeId, immediate = false) {
+  const card = document.querySelector(`[data-monitor-card="${routeId}"]`);
+  if (!card || !project) return;
+
+  const values = {
+    superPrice: card.querySelector(`[data-entry-super="${routeId}"]`)?.value || "",
+    saverPrice: card.querySelector(`[data-entry-saver="${routeId}"]`)?.value || "",
+    load: card.querySelector(`[data-entry-load="${routeId}"]`)?.value || ""
+  };
+
+  saveRouteDraft(project.id, routeId, values);
+
+  const label = document.querySelector(`[data-dirty-label="${routeId}"]`);
+  if (label) {
+    label.textContent = immediate
+      ? "✓ Entwurf gesichert"
+      : "✓ Automatisch gesichert";
+  }
+}
+
 function buildDbUrl(project, route) {
-  const origin = String(project.origin || "").trim();
-  const destination = String(route.destination || "").trim();
+  const origin = normalizeStationName(project.origin);
+  const destination = normalizeStationName(route.destination);
   const date = String(project.travelDate || "").trim();
   const time = String(route.time || "").trim();
 
@@ -256,11 +364,6 @@ function buildDbUrl(project, route) {
   params.set("sts", "true");
   params.set("so", origin);
   params.set("zo", destination);
-
-  // The current DB journey planner resolves station names reliably through
-  // soid/zoid. The older /buchung/start link often ignored date or station data.
-  params.set("soid", `O=${origin}`);
-  params.set("zoid", `O=${destination}`);
   params.set("sot", "ST");
   params.set("zot", "ST");
 
@@ -268,7 +371,7 @@ function buildDbUrl(project, route) {
     params.set("hd", `${date}T${time}:00`);
   }
 
-  params.set("hza", "D");      // Abfahrt, nicht Ankunft
+  params.set("hza", "D");
   params.set("ar", "false");
   params.set("s", "true");
   params.set("d", "false");
@@ -286,17 +389,22 @@ $("saveObservationBtn").addEventListener("click", () => {
     return;
   }
 
+  // Make sure the currently visible values are in the draft store.
+  for (const route of project.routes) {
+    persistCardDraft(project, route.id, true);
+  }
+
   const queriedAt = nowISO();
   const note = $("batchNote").value.trim();
   const added = [];
 
   for (const route of project.routes) {
-    const card = document.querySelector(`[data-monitor-card="${route.id}"]`);
-    if (!card || !card.querySelector(".changed")) continue;
+    const draft = getRouteDraft(project.id, route.id);
+    if (!hasDraftValues(draft)) continue;
 
-    const superPrice = parsePrice(card.querySelector(`[data-entry-super="${route.id}"]`)?.value);
-    const saverPrice = parsePrice(card.querySelector(`[data-entry-saver="${route.id}"]`)?.value);
-    const load = card.querySelector(`[data-entry-load="${route.id}"]`)?.value || "";
+    const superPrice = parsePrice(draft.superPrice);
+    const saverPrice = parsePrice(draft.saverPrice);
+    const load = draft.load || "";
     const prices = [superPrice, saverPrice].filter(v => v !== null);
     const price = prices.length ? Math.min(...prices) : null;
 
@@ -322,16 +430,22 @@ $("saveObservationBtn").addEventListener("click", () => {
   }
 
   if (!added.length) {
-    alert("Es wurden keine geänderten Verbindungen gefunden.");
+    alert("Es sind keine Preise oder Auslastungen als Entwurf vorhanden.");
     return;
   }
 
   project.observations.push(...added);
   project.updatedAt = new Date().toISOString();
+
+  for (const route of project.routes) {
+    clearRouteDraft(project.id, route.id);
+  }
+
+  localStorage.removeItem(DRAFT_NOTE_KEY);
   saveState();
   $("batchNote").value = "";
   renderAll();
-  showToast(`${added.length} Verbindung${added.length === 1 ? "" : "en"} gespeichert`);
+  showToast(`${added.length} Verbindung${added.length === 1 ? "" : "en"} abgeschlossen`);
 });
 
 function renderAnalysisSelector() {
@@ -1063,7 +1177,8 @@ $("applyOcrBtn")?.addEventListener("click", () => {
   superInput.classList.add("changed");
   saverInput.classList.add("changed");
   const dirty = document.querySelector(`[data-dirty-label="${routeId}"]`);
-  if (dirty) dirty.textContent = "Screenshot übernommen – noch nicht gespeichert";
+  if (dirty) dirty.textContent = "Screenshot übernommen – wird gesichert …";
+  persistCardDraft(project, routeId, true);
   superInput.scrollIntoView({ behavior: "smooth", block: "center" });
   superInput.focus();
   $("screenshotDialog").close();
@@ -1083,6 +1198,15 @@ window.addEventListener("focus", renderRoutes);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));
+}
+
+
+const batchNoteInput = $("batchNote");
+if (batchNoteInput) {
+  batchNoteInput.value = localStorage.getItem(DRAFT_NOTE_KEY) || "";
+  batchNoteInput.addEventListener("input", debounce(() => {
+    localStorage.setItem(DRAFT_NOTE_KEY, batchNoteInput.value);
+  }, 300));
 }
 
 renderAll();

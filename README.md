@@ -118,3 +118,23 @@ Backups aus Version 5 können weiterhin wiederhergestellt werden.
 5. Ein bis zwei Minuten warten und die Webseite in Safari neu laden.
 6. Zeigt die Home-Bildschirm-App noch die alte Version, diese Verknüpfung löschen
    und die Webseite erneut über „Zum Home-Bildschirm“ hinzufügen.
+
+
+# Version 7 – automatische Entwurfssicherung
+
+Neu:
+
+- Jede Eingabe bei Super Sparpreis, Sparpreis und Auslastung wird nach rund
+  300 Millisekunden automatisch im Browser gesichert.
+- Beim Öffnen einer DB-Verbindung, beim Wechsel zu einer anderen Verbindung,
+  beim Neuladen und beim Schließen der App bleiben nicht abgeschlossene Werte
+  erhalten.
+- „Abfrage abschließen“ übernimmt die gesicherten Entwürfe in den Preisverlauf
+  und löscht anschließend nur die Entwürfe.
+- Die Bemerkung zur Abfrage wird ebenfalls automatisch zwischengespeichert.
+- Häufige Schreibweisen von „Frankfurt Flughafen“ werden für die DB-Suche
+  automatisch in „Frankfurt(M) Flughafen Fernbf“ umgewandelt.
+- Der DB-Link verwendet keine erfundenen Bahnhof-IDs mehr.
+
+Bestehende Projekte, Verbindungen, Beobachtungen und JSON-Backups aus Version 5
+und Version 6 bleiben kompatibel.

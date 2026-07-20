@@ -1,7 +1,7 @@
 {
-  "name": "Bahnpreis-Tracker Version 6",
+  "name": "Bahnpreis-Tracker Version 7",
   "short_name": "Bahnmonitor",
-  "description": "Manuelle Bahnpreisstudien nach Reisedatum",
+  "description": "DB-Preisbeobachtung mit automatischer Entwurfssicherung",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
