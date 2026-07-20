@@ -1,136 +1,178 @@
 
+const STORAGE_KEY = "bahnpreis_tracker_v5_state";
+
 const DEFAULT_ROUTES = [
-  {code:"HAM", name:"Hamburg Hbf", time:"", train:""},
-  {code:"BER", name:"Berlin Hbf", time:"", train:""},
-  {code:"MUC", name:"München Hbf", time:"", train:""},
-  {code:"FRA", name:"Frankfurt (M) Flughafen Fernbf", time:"", train:""},
-  {code:"HAJ", name:"Hannover Hbf", time:"", train:""}
+  { id: uid(), code: "HAM", destination: "Hamburg Hbf", time: "", train: "" },
+  { id: uid(), code: "BER", destination: "Berlin Hbf", time: "", train: "" },
+  { id: uid(), code: "MUC", destination: "München Hbf", time: "", train: "" },
+  { id: uid(), code: "FRA", destination: "Frankfurt (M) Flughafen Fernbf", time: "", train: "" },
+  { id: uid(), code: "HAJ", destination: "Hannover Hbf", time: "", train: "" }
 ];
 
-const STORAGE_RECORDS = "bahnpreis_records_v4";
-const STORAGE_ROUTES = "bahnpreis_routes_v4";
-
 const $ = id => document.getElementById(id);
-const routesContainer = $("routes");
-const recordsBody = $("recordsBody");
-const recordCount = $("recordCount");
-const travelDate = $("travelDate");
-const queryTime = $("queryTime");
-const batchNote = $("batchNote");
-const toast = $("toast");
-const settingsDialog = $("settingsDialog");
-const routesText = $("routesText");
-const stats = $("stats");
-const chartRoute = $("chartRoute");
-const canvas = $("priceChart");
-const ctx = canvas.getContext("2d");
 
-let routes = loadRoutes();
-let records = loadRecords();
+let state = loadState();
+let editingProjectId = null;
 
-function localDateTimeValue(date = new Date()) {
-  const pad = n => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+function uid() {
+  return (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
-queryTime.value = localDateTimeValue();
 
-function loadRoutes() {
+function todayISO() {
+  const d = new Date();
+  return [d.getFullYear(), String(d.getMonth()+1).padStart(2,"0"), String(d.getDate()).padStart(2,"0")].join("-");
+}
+
+function nowISO() {
+  const d = new Date();
+  return `${todayISO()}T${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+
+function defaultState() {
+  return { version: 5, activeProjectId: null, projects: [] };
+}
+
+function loadState() {
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_ROUTES));
-    return Array.isArray(value) && value.length ? value : DEFAULT_ROUTES;
-  } catch { return DEFAULT_ROUTES; }
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return parsed && Array.isArray(parsed.projects) ? parsed : defaultState();
+  } catch {
+    return defaultState();
+  }
 }
-function loadRecords() {
-  try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_RECORDS));
-    return Array.isArray(value) ? value : [];
-  } catch { return []; }
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
-function saveRecords() { localStorage.setItem(STORAGE_RECORDS, JSON.stringify(records)); }
-function showToast(message) {
-  toast.textContent = message;
+
+function activeProject() {
+  return state.projects.find(p => p.id === state.activeProjectId) || null;
+}
+
+function cloneDefaultRoutes() {
+  return DEFAULT_ROUTES.map(r => ({ ...r, id: uid() }));
+}
+
+function formatDate(iso) {
+  if (!iso) return "–";
+  return new Date(`${iso}T12:00:00`).toLocaleDateString("de-DE");
+}
+
+function formatDateTime(iso) {
+  if (!iso) return "–";
+  return new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+}
+
+function formatPrice(value) {
+  if (value === "" || value === null || value === undefined) return "–";
+  return Number(value).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+}
+
+function parsePrice(value) {
+  const normalized = String(value || "").trim().replace(/\./g, "").replace(",", ".");
+  if (!normalized) return null;
+  const number = Number(normalized);
+  return Number.isFinite(number) ? Number(number.toFixed(2)) : null;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+  }[c]));
+}
+
+function showToast(text) {
+  const toast = $("toast");
+  toast.textContent = text;
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 1800);
 }
-function escapeHtml(text) {
-  return String(text).replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-  }[c]));
-}
-function parsePrice(value) {
-  const cleaned = value.trim().replace(/\./g, "").replace(",", ".");
-  if (!cleaned) return "";
-  const number = Number(cleaned);
-  return Number.isFinite(number) ? number.toFixed(2) : "";
-}
-function formatPrice(value) {
-  if (value === "" || value == null) return "–";
-  return Number(value).toLocaleString("de-DE", {minimumFractionDigits:2, maximumFractionDigits:2}) + " €";
+
+function daysBetween(a, b) {
+  const ms = new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`);
+  return Math.round(ms / 86400000);
 }
 
-
-function buildDbSearchUrl(route) {
-  const selectedDate = travelDate.value;
-  const selectedTime = route.time || "";
-  const departure = selectedDate && selectedTime
-    ? `${selectedDate}T${selectedTime}:00`
-    : "";
-
-  const params = new URLSearchParams();
-  params.set("SO", "Kassel-Wilhelmshöhe");
-  params.set("ZO", route.name);
-  if (departure) params.set("HD", departure);
-  params.set("D", "true");
-
-  return `https://www.bahn.de/buchung/start#?${params.toString()}`;
+function renderAll() {
+  renderProjectHeader();
+  renderRoutes();
+  renderAnalysisSelector();
+  renderAnalysis();
+  renderHistory();
+  renderProjectList();
+  $("queryTimestampLabel").textContent = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
 }
 
-function openDbSearch(route) {
-  if (!travelDate.value) {
-    alert("Bitte zuerst das Reisedatum auswählen.");
-    travelDate.focus();
+function renderProjectHeader() {
+  const project = activeProject();
+  if (!project) {
+    $("projectTitle").textContent = "Kein Projekt";
+    $("projectMeta").textContent = "Bitte ein Projekt anlegen.";
+    $("studyStartLabel").textContent = "–";
+    $("travelDateLabel").textContent = "–";
+    $("daysRemainingLabel").textContent = "–";
+    $("progressBar").style.width = "0%";
+    ["metricObservations","metricDays","metricLast","metricAverage"].forEach((id, i) => $(id).textContent = i === 3 ? "0,0" : i === 2 ? "–" : "0");
     return;
   }
-  if (!route.time) {
-    alert("Bitte für diese Verbindung zuerst eine Abfahrtszeit eintragen.");
-    return;
-  }
-  const url = buildDbSearchUrl(route);
-  window.open(url, "_blank", "noopener,noreferrer");
+
+  $("projectTitle").textContent = formatDate(project.travelDate);
+  $("projectMeta").textContent = `${project.origin} · ${project.routes.length} Verbindungen`;
+  $("studyStartLabel").textContent = formatDate(project.studyStart);
+  $("travelDateLabel").textContent = formatDate(project.travelDate);
+
+  const remaining = daysBetween(todayISO(), project.travelDate);
+  $("daysRemainingLabel").textContent = remaining >= 0 ? `Noch ${remaining} Tage` : `${Math.abs(remaining)} Tage vergangen`;
+
+  const totalDuration = Math.max(1, daysBetween(project.studyStart, project.travelDate));
+  const elapsed = Math.max(0, daysBetween(project.studyStart, todayISO()));
+  const progress = Math.max(0, Math.min(100, (elapsed / totalDuration) * 100));
+  $("progressBar").style.width = `${progress}%`;
+
+  const observations = project.observations || [];
+  const uniqueDays = new Set(observations.map(o => o.queriedAt.slice(0,10))).size;
+  const last = [...observations].sort((a,b) => b.queriedAt.localeCompare(a.queriedAt))[0];
+  $("metricObservations").textContent = observations.length;
+  $("metricDays").textContent = uniqueDays;
+  $("metricLast").textContent = last ? formatDateTime(last.queriedAt) : "–";
+  $("metricAverage").textContent = uniqueDays ? (observations.length / uniqueDays).toLocaleString("de-DE", {minimumFractionDigits:1, maximumFractionDigits:1}) : "0,0";
 }
 
 function renderRoutes() {
-  routesContainer.innerHTML = "";
-  routes.forEach((route, index) => {
-    const card = document.createElement("section");
-    card.className = "route-card";
-    card.innerHTML = `
-      <div class="route-head">
-        <span class="route-code">${escapeHtml(route.code)}</span>
-        <span class="route-name">${escapeHtml(route.name)}</span>
+  const container = $("routesContainer");
+  const project = activeProject();
+  if (!project) {
+    container.innerHTML = `<div class="helper-text">Lege zuerst ein Projekt an.</div>`;
+    return;
+  }
+
+  container.innerHTML = project.routes.map((route, index) => `
+    <article class="route-card">
+      <div class="route-card-header">
+        <div class="route-code">${escapeHtml(route.code)}</div>
+        <div>
+          <div class="route-title">${escapeHtml(route.destination)}</div>
+          <div class="route-subtitle">${escapeHtml(route.train || "Zugnummer fehlt")} · ${escapeHtml(route.time || "Zeit fehlt")}</div>
+        </div>
+        <button type="button" class="db-button" data-db-route="${index}">Bei DB suchen</button>
       </div>
-      <div class="connection-fields">
-        <label>Abfahrtszeit
-          <input type="time" data-route-time="${index}" value="${escapeHtml(route.time || "")}">
+      <div class="route-input-grid">
+        <label class="field price-field">
+          <span>Günstigster Preis</span>
+          <input inputmode="decimal" data-entry-price="${route.id}" placeholder="z. B. 29,99">
         </label>
-        <label>Zugnummer
-          <input type="text" data-route-train="${index}" value="${escapeHtml(route.train || "")}" placeholder="z. B. ICE 787">
-        </label>
-      </div>
-      <div class="route-fields">
-        <label>Günstigster Preis (€)
-          <input inputmode="decimal" data-field="price" data-index="${index}" placeholder="z. B. 29,99">
-        </label>
-        <label>Preisart
-          <select data-field="type" data-index="${index}">
+        <label class="field">
+          <span>Preisart</span>
+          <select data-entry-type="${route.id}">
             <option value="">–</option>
             <option>Super Sparpreis</option>
             <option>Sparpreis</option>
             <option>Flexpreis</option>
           </select>
         </label>
-        <label>Auslastung
-          <select data-field="load" data-index="${index}">
+        <label class="field">
+          <span>Auslastung</span>
+          <select data-entry-load="${route.id}">
             <option value="">–</option>
             <option>gering</option>
             <option>mittel</option>
@@ -140,87 +182,163 @@ function renderRoutes() {
           </select>
         </label>
       </div>
-      <div class="route-actions">
-        <button class="db-search-button" type="button" data-db-index="${index}">
-          Bei DB suchen
-        </button>
-      </div>
-    `;
-    routesContainer.appendChild(card);
-  });
-  renderChartOptions();
+    </article>
+  `).join("");
 }
 
-function renderChartOptions() {
-  const selected = chartRoute.value;
-  chartRoute.innerHTML = routes.map(r => `<option value="${escapeHtml(r.code)}">${escapeHtml(r.code)} – ${escapeHtml(r.name)}</option>`).join("");
-  if (routes.some(r => r.code === selected)) chartRoute.value = selected;
+function buildDbUrl(project, route) {
+  const departure = project.travelDate && route.time ? `${project.travelDate}T${route.time}:00` : "";
+  const params = new URLSearchParams();
+  params.set("SO", project.origin);
+  params.set("ZO", route.destination);
+  if (departure) params.set("HD", departure);
+  params.set("D", "true");
+  return `https://www.bahn.de/buchung/start#?${params.toString()}`;
 }
 
-function renderStats() {
-  const uniqueDays = new Set(records.map(r => r.queryTime.slice(0,10))).size;
-  const uniqueRoutes = new Set(records.map(r => r.code)).size;
-  stats.innerHTML = `
-    <div class="stat"><strong>${records.length}</strong><span>Preisbeobachtungen</span></div>
-    <div class="stat"><strong>${uniqueDays}</strong><span>Abfragetage</span></div>
-    <div class="stat"><strong>${uniqueRoutes}</strong><span>Verbindungen</span></div>
-  `;
-}
-
-function renderRecords() {
-  recordsBody.innerHTML = "";
-  const sorted = [...records].sort((a,b) => b.queryTime.localeCompare(a.queryTime));
-  for (const record of sorted) {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${new Date(record.queryTime).toLocaleString("de-DE")}</td>
-      <td>${record.travelDate ? new Date(record.travelDate + "T12:00").toLocaleDateString("de-DE") : "–"}</td>
-      <td>${escapeHtml(record.code)}</td>
-      <td>${escapeHtml(record.train || "–")}</td>
-      <td>${formatPrice(record.price)}</td>
-      <td>${escapeHtml(record.type || "–")}</td>
-      <td>${escapeHtml(record.load || "–")}</td>
-      <td class="note-cell">${escapeHtml(record.note || "–")}</td>
-      <td><button class="danger icon-button" data-delete="${record.id}">×</button></td>
-    `;
-    recordsBody.appendChild(row);
+$("routesContainer").addEventListener("click", event => {
+  const button = event.target.closest("[data-db-route]");
+  if (!button) return;
+  const project = activeProject();
+  const route = project?.routes[Number(button.dataset.dbRoute)];
+  if (!project || !route) return;
+  if (!route.time) {
+    alert("Bitte die Verbindung im Projekt bearbeiten und eine Abfahrtszeit eintragen.");
+    return;
   }
-  recordCount.textContent = `${records.length} Datensatz${records.length === 1 ? "" : "sätze"}`;
-  renderStats();
-  drawChart();
+  window.open(buildDbUrl(project, route), "_blank", "noopener,noreferrer");
+});
+
+$("saveObservationBtn").addEventListener("click", () => {
+  const project = activeProject();
+  if (!project) {
+    alert("Bitte zuerst ein Projekt anlegen.");
+    return;
+  }
+
+  const queriedAt = nowISO();
+  const note = $("batchNote").value.trim();
+  const added = [];
+
+  for (const route of project.routes) {
+    const priceInput = document.querySelector(`[data-entry-price="${route.id}"]`);
+    const typeInput = document.querySelector(`[data-entry-type="${route.id}"]`);
+    const loadInput = document.querySelector(`[data-entry-load="${route.id}"]`);
+    const price = parsePrice(priceInput?.value);
+
+    if (price !== null || typeInput?.value || loadInput?.value) {
+      added.push({
+        id: uid(),
+        queriedAt,
+        travelDate: project.travelDate,
+        routeId: route.id,
+        code: route.code,
+        origin: project.origin,
+        destination: route.destination,
+        time: route.time,
+        train: route.train,
+        price,
+        fareType: typeInput?.value || "",
+        load: loadInput?.value || "",
+        note
+      });
+    }
+  }
+
+  if (!added.length) {
+    alert("Bitte mindestens einen Preis eintragen.");
+    return;
+  }
+
+  project.observations.push(...added);
+  project.updatedAt = new Date().toISOString();
+  saveState();
+
+  document.querySelectorAll("[data-entry-price]").forEach(el => el.value = "");
+  document.querySelectorAll("[data-entry-type]").forEach(el => el.value = "");
+  document.querySelectorAll("[data-entry-load]").forEach(el => el.value = "");
+  $("batchNote").value = "";
+
+  renderAll();
+  showToast(`${added.length} Preise gespeichert`);
+});
+
+function renderAnalysisSelector() {
+  const select = $("analysisRouteSelect");
+  const project = activeProject();
+  const current = select.value;
+  if (!project) {
+    select.innerHTML = "";
+    return;
+  }
+  select.innerHTML = project.routes.map(r => `<option value="${r.id}">${escapeHtml(r.code)} – ${escapeHtml(r.destination)}</option>`).join("");
+  if (project.routes.some(r => r.id === current)) select.value = current;
 }
 
-function drawChart() {
-  const code = chartRoute.value || routes[0]?.code;
-  const data = records
-    .filter(r => r.code === code && r.price !== "")
-    .map(r => ({x:new Date(r.queryTime), y:Number(r.price)}))
-    .filter(p => Number.isFinite(p.y))
-    .sort((a,b) => a.x - b.x);
+$("analysisRouteSelect").addEventListener("change", renderAnalysis);
 
-  const ratio = window.devicePixelRatio || 1;
+function renderAnalysis() {
+  const project = activeProject();
+  const routeId = $("analysisRouteSelect").value;
+  const statsContainer = $("routeStats");
+  const canvas = $("priceChart");
+  const ctx = canvas.getContext("2d");
+
+  if (!project || !routeId) {
+    statsContainer.innerHTML = "";
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    return;
+  }
+
+  const values = project.observations
+    .filter(o => o.routeId === routeId && o.price !== null)
+    .sort((a,b) => a.queriedAt.localeCompare(b.queriedAt));
+
+  const prices = values.map(v => Number(v.price));
+  const min = prices.length ? Math.min(...prices) : null;
+  const max = prices.length ? Math.max(...prices) : null;
+  const avg = prices.length ? prices.reduce((a,b) => a+b,0) / prices.length : null;
+  const current = prices.length ? prices[prices.length-1] : null;
+
+  statsContainer.innerHTML = `
+    <div class="route-stat"><span>Aktuell</span><strong>${formatPrice(current)}</strong></div>
+    <div class="route-stat"><span>Minimum</span><strong>${formatPrice(min)}</strong></div>
+    <div class="route-stat"><span>Maximum</span><strong>${formatPrice(max)}</strong></div>
+    <div class="route-stat"><span>Durchschnitt</span><strong>${formatPrice(avg)}</strong></div>
+  `;
+
+  drawChart(values);
+}
+
+function drawChart(values) {
+  const canvas = $("priceChart");
+  const ctx = canvas.getContext("2d");
   const width = canvas.clientWidth || 800;
-  const height = 250;
+  const height = 260;
+  const ratio = window.devicePixelRatio || 1;
   canvas.width = width * ratio;
   canvas.height = height * ratio;
   ctx.setTransform(ratio,0,0,ratio,0,0);
   ctx.clearRect(0,0,width,height);
 
-  if (data.length < 2) {
-    ctx.font = "14px system-ui";
+  if (values.length < 2) {
     ctx.fillStyle = "#6b7280";
-    ctx.fillText("Noch nicht genug Daten für eine Grafik.", 20, 40);
+    ctx.font = "14px system-ui";
+    ctx.fillText("Noch nicht genug Daten für einen Preisverlauf.", 18, 38);
     return;
   }
 
-  const pad = {l:48,r:18,t:18,b:36};
-  const ys = data.map(d => d.y);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const rangeY = Math.max(1, maxY-minY);
-  const minX = data[0].x.getTime(), maxX = data[data.length-1].x.getTime();
-  const rangeX = Math.max(1, maxX-minX);
+  const pad = { l: 48, r: 18, t: 20, b: 38 };
+  const ys = values.map(v => Number(v.price));
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const rangeY = Math.max(1, maxY - minY);
+  const times = values.map(v => new Date(v.queriedAt).getTime());
+  const minX = Math.min(...times);
+  const maxX = Math.max(...times);
+  const rangeX = Math.max(1, maxX - minX);
 
-  ctx.strokeStyle = "#d1d5db";
+  ctx.strokeStyle = "#d7dce5";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(pad.l,pad.t);
@@ -228,228 +346,297 @@ function drawChart() {
   ctx.lineTo(width-pad.r,height-pad.b);
   ctx.stroke();
 
-  ctx.font = "12px system-ui";
   ctx.fillStyle = "#6b7280";
-  ctx.fillText(`${maxY.toFixed(0)} €`, 6, pad.t+4);
-  ctx.fillText(`${minY.toFixed(0)} €`, 6, height-pad.b+4);
+  ctx.font = "12px system-ui";
+  ctx.fillText(`${maxY.toFixed(0)} €`, 5, pad.t+4);
+  ctx.fillText(`${minY.toFixed(0)} €`, 5, height-pad.b+4);
 
-  ctx.strokeStyle = "#111827";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#172033";
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
-  data.forEach((d,i) => {
-    const x = pad.l + ((d.x.getTime()-minX)/rangeX)*(width-pad.l-pad.r);
-    const y = pad.t + (1-((d.y-minY)/rangeY))*(height-pad.t-pad.b);
-    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  values.forEach((v, i) => {
+    const x = pad.l + ((new Date(v.queriedAt).getTime()-minX)/rangeX)*(width-pad.l-pad.r);
+    const y = pad.t + (1-((Number(v.price)-minY)/rangeY))*(height-pad.t-pad.b);
+    if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
   });
   ctx.stroke();
 
-  ctx.fillStyle = "#111827";
-  data.forEach(d => {
-    const x = pad.l + ((d.x.getTime()-minX)/rangeX)*(width-pad.l-pad.r);
-    const y = pad.t + (1-((d.y-minY)/rangeY))*(height-pad.t-pad.b);
-    ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#172033";
+  values.forEach(v => {
+    const x = pad.l + ((new Date(v.queriedAt).getTime()-minX)/rangeX)*(width-pad.l-pad.r);
+    const y = pad.t + (1-((Number(v.price)-minY)/rangeY))*(height-pad.t-pad.b);
+    ctx.beginPath();
+    ctx.arc(x,y,3.5,0,Math.PI*2);
+    ctx.fill();
   });
 }
 
-$("entryForm").addEventListener("submit", event => {
-  event.preventDefault();
-  if (!travelDate.value) { alert("Bitte Reisedatum eintragen."); return; }
+window.addEventListener("resize", renderAnalysis);
 
-  const inputs = [...document.querySelectorAll("[data-field]")];
-  const batch = routes.map((route,index) => {
-    const get = field => inputs.find(el => el.dataset.index == index && el.dataset.field === field)?.value ?? "";
-    return {
-      id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${index}`,
-      queryTime: queryTime.value || localDateTimeValue(),
-      travelDate: travelDate.value,
-      code: route.code,
-      route: route.name,
-      time: route.time,
-      train: route.train || "",
-      price: parsePrice(get("price")),
-      type: get("type"),
-      load: get("load"),
-      note: batchNote.value.trim()
-    };
-  }).filter(x => x.price || x.type || x.load);
+function renderHistory() {
+  const container = $("historyList");
+  const project = activeProject();
+  if (!project || !project.observations.length) {
+    container.innerHTML = `<div class="helper-text">Noch keine Erfassungen vorhanden.</div>`;
+    return;
+  }
 
-  if (!batch.length) { alert("Bitte mindestens einen Preis eintragen."); return; }
+  const grouped = new Map();
+  [...project.observations].sort((a,b) => b.queriedAt.localeCompare(a.queriedAt)).forEach(o => {
+    if (!grouped.has(o.queriedAt)) grouped.set(o.queriedAt, []);
+    grouped.get(o.queriedAt).push(o);
+  });
 
-  records.push(...batch);
-  saveRecords();
-  renderRecords();
-  clearInputs();
-  queryTime.value = localDateTimeValue();
-  showToast(`${batch.length} Verbindung${batch.length === 1 ? "" : "en"} gespeichert`);
-});
-
-function clearInputs() {
-  document.querySelectorAll("[data-field]").forEach(el => el.value = "");
-  batchNote.value = "";
+  container.innerHTML = [...grouped.entries()].slice(0, 12).map(([time, items]) => `
+    <div class="history-item">
+      <div>
+        <strong>${formatDateTime(time)}</strong>
+        <span>${escapeHtml(items[0]?.note || "Keine Bemerkung")}</span>
+      </div>
+      <div class="history-prices">
+        ${items.map(i => `${escapeHtml(i.code)} ${formatPrice(i.price)}`).join("<br>")}
+      </div>
+    </div>
+  `).join("");
 }
 
-$("clearInputsBtn").addEventListener("click", clearInputs);
-
-routesContainer.addEventListener("click", event => {
-  const button = event.target.closest("[data-db-index]");
-  if (!button) return;
-  const index = Number(button.dataset.dbIndex);
-  const route = routes[index];
-  if (route) openDbSearch(route);
-});
-
-routesContainer.addEventListener("change", event => {
-  const timeIndex = event.target.dataset.routeTime;
-  const trainIndex = event.target.dataset.routeTrain;
-
-  if (timeIndex !== undefined) {
-    routes[Number(timeIndex)].time = event.target.value;
-    localStorage.setItem(STORAGE_ROUTES, JSON.stringify(routes));
+function renderProjectList() {
+  const container = $("projectList");
+  if (!state.projects.length) {
+    container.innerHTML = `<div class="helper-text">Noch kein Projekt vorhanden.</div>`;
+    return;
   }
 
-  if (trainIndex !== undefined) {
-    routes[Number(trainIndex)].train = event.target.value.trim();
-    localStorage.setItem(STORAGE_ROUTES, JSON.stringify(routes));
+  container.innerHTML = [...state.projects]
+    .sort((a,b) => a.travelDate.localeCompare(b.travelDate))
+    .map(project => `
+      <div class="project-list-item ${project.id === state.activeProjectId ? "active" : ""}">
+        <button type="button" class="project-select-button" data-select-project="${project.id}">
+          <strong>${formatDate(project.travelDate)}</strong><br>
+          <span>${project.observations.length} Beobachtungen</span>
+        </button>
+        <button type="button" class="button button-light button-small" data-edit-project="${project.id}">Bearbeiten</button>
+        <button type="button" class="button button-danger button-small" data-delete-project="${project.id}">Löschen</button>
+      </div>
+    `).join("");
+}
+
+$("openProjectDialogBtn").addEventListener("click", () => {
+  renderProjectList();
+  $("projectDialog").showModal();
+});
+
+$("projectList").addEventListener("click", event => {
+  const selectId = event.target.closest("[data-select-project]")?.dataset.selectProject;
+  const editId = event.target.closest("[data-edit-project]")?.dataset.editProject;
+  const deleteId = event.target.closest("[data-delete-project]")?.dataset.deleteProject;
+
+  if (selectId) {
+    state.activeProjectId = selectId;
+    saveState();
+    $("projectDialog").close();
+    renderAll();
+  }
+
+  if (editId) {
+    openProjectEditor(editId);
+  }
+
+  if (deleteId) {
+    const project = state.projects.find(p => p.id === deleteId);
+    if (project && confirm(`Projekt ${formatDate(project.travelDate)} wirklich löschen?`)) {
+      state.projects = state.projects.filter(p => p.id !== deleteId);
+      if (state.activeProjectId === deleteId) state.activeProjectId = state.projects[0]?.id || null;
+      saveState();
+      renderAll();
+    }
   }
 });
 
-
-recordsBody.addEventListener("click", event => {
-  const id = event.target.dataset.delete;
-  if (!id) return;
-  records = records.filter(r => r.id !== id);
-  saveRecords();
-  renderRecords();
+$("newProjectBtn").addEventListener("click", () => openProjectEditor(null));
+$("editProjectBtn").addEventListener("click", () => {
+  if (!activeProject()) openProjectEditor(null);
+  else openProjectEditor(activeProject().id);
 });
 
-$("deleteAllBtn").addEventListener("click", () => {
-  if (!records.length) return;
-  if (confirm("Wirklich alle Daten löschen?")) {
-    records = [];
-    saveRecords();
-    renderRecords();
-    showToast("Alle Daten gelöscht");
-  }
+function openProjectEditor(projectId) {
+  editingProjectId = projectId;
+  const project = state.projects.find(p => p.id === projectId);
+  $("projectEditHeading").textContent = project ? "Projekt bearbeiten" : "Neues Projekt";
+  $("editTravelDate").value = project?.travelDate || "";
+  $("editStudyStart").value = project?.studyStart || todayISO();
+  $("editOrigin").value = project?.origin || "Kassel-Wilhelmshöhe";
+  renderRoutesEditor(project?.routes || cloneDefaultRoutes());
+  $("projectEditDialog").showModal();
+}
+
+function renderRoutesEditor(routes) {
+  $("routesEditor").innerHTML = routes.map(route => `
+    <div class="route-editor-row" data-route-editor-id="${route.id}">
+      <label>Code<input data-route-prop="code" value="${escapeHtml(route.code)}" maxlength="5"></label>
+      <label>Ziel<input data-route-prop="destination" value="${escapeHtml(route.destination)}"></label>
+      <label>Abfahrt<input data-route-prop="time" type="time" value="${escapeHtml(route.time || "")}"></label>
+      <label class="wide-mobile">Zugnummer<input data-route-prop="train" value="${escapeHtml(route.train || "")}" placeholder="z. B. ICE 787"></label>
+      <button type="button" class="remove-route-button" data-remove-route>×</button>
+    </div>
+  `).join("");
+}
+
+$("addRouteBtn").addEventListener("click", () => {
+  const current = collectRoutesFromEditor();
+  current.push({ id: uid(), code: "", destination: "", time: "", train: "" });
+  renderRoutesEditor(current);
 });
 
-$("settingsBtn").addEventListener("click", () => {
-  routesText.value = routes.map(r => `${r.code}|${r.name}|${r.time || ""}|${r.train || ""}`).join("\\n");
-  settingsDialog.showModal();
+$("routesEditor").addEventListener("click", event => {
+  if (!event.target.closest("[data-remove-route]")) return;
+  const row = event.target.closest("[data-route-editor-id]");
+  row?.remove();
 });
 
-$("saveRoutesBtn").addEventListener("click", event => {
-  const parsed = routesText.value.split("\\n").map(line => {
-    const [code,name,time,train] = line.split("|").map(x => (x||"").trim());
-    return {code,name,time,train};
-  }).filter(r => r.code && r.name);
-  if (!parsed.length) {
-    event.preventDefault();
+function collectRoutesFromEditor() {
+  return [...document.querySelectorAll("[data-route-editor-id]")].map(row => {
+    const get = prop => row.querySelector(`[data-route-prop="${prop}"]`)?.value.trim() || "";
+    return {
+      id: row.dataset.routeEditorId || uid(),
+      code: get("code").toUpperCase(),
+      destination: get("destination"),
+      time: get("time"),
+      train: get("train")
+    };
+  });
+}
+
+$("projectEditForm").addEventListener("submit", event => {
+  event.preventDefault();
+
+  const routes = collectRoutesFromEditor().filter(r => r.code && r.destination);
+  if (!routes.length) {
     alert("Bitte mindestens eine Verbindung eintragen.");
     return;
   }
-  routes = parsed;
-  localStorage.setItem(STORAGE_ROUTES, JSON.stringify(routes));
-  renderRoutes();
-  drawChart();
-  showToast("Verbindungen gespeichert");
+
+  const travelDate = $("editTravelDate").value;
+  const studyStart = $("editStudyStart").value;
+  if (!travelDate || !studyStart) {
+    alert("Bitte Reisedatum und Studienbeginn eintragen.");
+    return;
+  }
+
+  if (studyStart > travelDate) {
+    alert("Der Studienbeginn darf nicht nach dem Reisedatum liegen.");
+    return;
+  }
+
+  const existing = state.projects.find(p => p.id === editingProjectId);
+  if (existing) {
+    existing.travelDate = travelDate;
+    existing.studyStart = studyStart;
+    existing.origin = $("editOrigin").value.trim();
+    existing.routes = routes;
+    existing.updatedAt = new Date().toISOString();
+  } else {
+    const project = {
+      id: uid(),
+      travelDate,
+      studyStart,
+      origin: $("editOrigin").value.trim(),
+      routes,
+      observations: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    state.projects.push(project);
+    state.activeProjectId = project.id;
+  }
+
+  saveState();
+  $("projectEditDialog").close();
+  $("projectDialog").close();
+  renderAll();
+  showToast("Projekt gespeichert");
+});
+
+["closeProjectEditBtn","cancelProjectEditBtn"].forEach(id => {
+  $(id).addEventListener("click", () => $("projectEditDialog").close());
+});
+
+$("deleteProjectDataBtn").addEventListener("click", () => {
+  const project = activeProject();
+  if (!project || !project.observations.length) return;
+  if (confirm("Alle Preisbeobachtungen dieses Projekts löschen? Das Projekt selbst bleibt erhalten.")) {
+    project.observations = [];
+    project.updatedAt = new Date().toISOString();
+    saveState();
+    renderAll();
+    showToast("Projektdaten gelöscht");
+  }
 });
 
 function csvEscape(value) {
   const text = String(value ?? "");
-  return `"${text.replace(/"/g,'""')}"`;
+  return `"${text.replace(/"/g, '""')}"`;
 }
-$("exportBtn").addEventListener("click", () => {
-  if (!records.length) { alert("Noch keine Daten vorhanden."); return; }
-  const header = ["Abfragezeit","Reisedatum","Code","Verbindung","Uhrzeit","Zugnummer","Preis_EUR","Preisart","Auslastung","Bemerkung"];
-  const rows = records.map(r => [r.queryTime,r.travelDate,r.code,r.route,r.time,r.train || "",r.price,r.type,r.load,r.note]);
-  const csv = "\\uFEFF" + [header,...rows].map(row => row.map(csvEscape).join(";")).join("\\n");
-  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `bahnpreise_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+
+$("exportProjectCsvBtn").addEventListener("click", () => {
+  const project = activeProject();
+  if (!project) {
+    alert("Kein Projekt ausgewählt.");
+    return;
+  }
+
+  const header = ["Projekt_Reisedatum","Abfragezeit","Code","Start","Ziel","Abfahrt","Zugnummer","Preis_EUR","Preisart","Auslastung","Bemerkung"];
+  const rows = project.observations.map(o => [
+    project.travelDate, o.queriedAt, o.code, o.origin, o.destination, o.time, o.train,
+    o.price ?? "", o.fareType, o.load, o.note
+  ]);
+  const csv = "\uFEFF" + [header, ...rows].map(row => row.map(csvEscape).join(";")).join("\n");
+  downloadBlob(csv, `bahnpreise_${project.travelDate}.csv`, "text/csv;charset=utf-8");
 });
 
-$("importInput").addEventListener("change", async event => {
+$("exportAllJsonBtn").addEventListener("click", () => {
+  const backup = JSON.stringify({ exportedAt: new Date().toISOString(), ...state }, null, 2);
+  downloadBlob(backup, `bahnpreis_tracker_backup_${todayISO()}.json`, "application/json");
+});
+
+$("importBackupInput").addEventListener("change", async event => {
   const file = event.target.files[0];
   if (!file) return;
-  const text = await file.text();
-  const lines = text.replace(/^\\uFEFF/,"").split(/\\r?\\n/).filter(Boolean);
-  const parseLine = line => {
-    const out=[]; let current="", quoted=false;
-    for (let i=0;i<line.length;i++) {
-      const c=line[i];
-      if (c === '"') {
-        if (quoted && line[i+1] === '"') { current+='"'; i++; }
-        else quoted=!quoted;
-      } else if (c === ";" && !quoted) { out.push(current); current=""; }
-      else current+=c;
-    }
-    out.push(current); return out;
-  };
-  const imported = lines.slice(1).map((line,index) => {
-    const [qt,td,code,route,time,train,price,type,load,note] = parseLine(line);
-    return {
-      id: crypto.randomUUID ? crypto.randomUUID() : `import-${Date.now()}-${index}`,
-      queryTime:qt, travelDate:td, code, route, time, train, price, type, load, note
+  try {
+    const parsed = JSON.parse(await file.text());
+    if (!Array.isArray(parsed.projects)) throw new Error("Ungültiges Backup");
+    if (!confirm("Das aktuelle lokale Backup durch die ausgewählte Datei ersetzen?")) return;
+    state = {
+      version: parsed.version || 5,
+      activeProjectId: parsed.activeProjectId || parsed.projects[0]?.id || null,
+      projects: parsed.projects
     };
-  }).filter(r => r.queryTime && r.code);
-  records.push(...imported);
-  saveRecords();
-  renderRecords();
-  event.target.value="";
-  showToast(`${imported.length} Datensätze importiert`);
+    saveState();
+    renderAll();
+    showToast("Backup wiederhergestellt");
+  } catch {
+    alert("Die Datei ist kein gültiges Bahnpreis-Tracker-Backup.");
+  } finally {
+    event.target.value = "";
+  }
 });
 
-$("calendarBtn").addEventListener("click", () => {
-  const times = [$("reminder1").value,$("reminder2").value,$("reminder3").value].filter(Boolean);
-  if (!times.length) return;
-
-  const today = new Date();
-  const pad = n => String(n).padStart(2,"0");
-  const dateStamp = `${today.getUTCFullYear()}${pad(today.getUTCMonth()+1)}${pad(today.getUTCDate())}T${pad(today.getUTCHours())}${pad(today.getUTCMinutes())}00Z`;
-
-  const events = times.map((time,i) => {
-    const [h,m] = time.split(":").map(Number);
-    const start = new Date(today.getFullYear(),today.getMonth(),today.getDate(),h,m,0);
-    if (start <= today) start.setDate(start.getDate()+1);
-    const local = `${start.getFullYear()}${pad(start.getMonth()+1)}${pad(start.getDate())}T${pad(start.getHours())}${pad(start.getMinutes())}00`;
-    return [
-      "BEGIN:VEVENT",
-      `UID:bahnpreis-${i}-${Date.now()}@bahnpreis-tracker`,
-      `DTSTAMP:${dateStamp}`,
-      `DTSTART:${local}`,
-      "RRULE:FREQ=DAILY",
-      "SUMMARY:Bahnpreise prüfen",
-      "DESCRIPTION:Bitte die beobachteten Bahnverbindungen im Bahnpreis-Tracker erfassen.",
-      "BEGIN:VALARM",
-      "TRIGGER:-PT0M",
-      "ACTION:DISPLAY",
-      "DESCRIPTION:Bahnpreise prüfen",
-      "END:VALARM",
-      "END:VEVENT"
-    ].join("\\r\\n");
-  });
-
-  const ics = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Bahnpreis Tracker//DE",...events,"END:VCALENDAR"].join("\\r\\n");
-  const blob = new Blob([ics], {type:"text/calendar;charset=utf-8"});
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "bahnpreis-erinnerungen.ics";
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-  showToast("Kalenderdatei erstellt");
-});
-
-chartRoute.addEventListener("change", drawChart);
-window.addEventListener("resize", drawChart);
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));
 }
 
-renderRoutes();
-renderRecords();
+renderAll();
+
+if (!state.projects.length) {
+  openProjectEditor(null);
+}

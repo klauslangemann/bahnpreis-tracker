@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#111827">
+  <meta name="theme-color" content="#f6f7f9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Bahnpreise">
@@ -13,124 +13,160 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <header>
+  <header class="app-header">
     <div>
       <h1>Bahnpreis-Tracker</h1>
-      <p>Manuelle Preisbeobachtung</p>
+      <p>Preisstudien nach Reisedatum</p>
     </div>
-    <button id="settingsBtn" class="secondary small">Einstellungen</button>
+    <button id="openProjectDialogBtn" class="button button-light">Projekte</button>
   </header>
 
   <main>
-    <section class="notice">
-      <strong>Datensicherung:</strong> Bitte mindestens einmal pro Woche CSV sichern.
+    <section class="project-card">
+      <div class="project-card-top">
+        <div>
+          <span class="eyebrow">Aktuelles Projekt</span>
+          <h2 id="projectTitle">Kein Projekt</h2>
+          <p id="projectMeta">Bitte ein Projekt anlegen.</p>
+        </div>
+        <button id="editProjectBtn" class="icon-button" title="Projekt bearbeiten">✎</button>
+      </div>
+
+      <div class="progress-track" aria-hidden="true">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <div class="progress-labels">
+        <span id="studyStartLabel">–</span>
+        <strong id="daysRemainingLabel">–</strong>
+        <span id="travelDateLabel">–</span>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric"><span>Beobachtungen</span><strong id="metricObservations">0</strong></div>
+        <div class="metric"><span>Abfragetage</span><strong id="metricDays">0</strong></div>
+        <div class="metric"><span>Letzte Abfrage</span><strong id="metricLast">–</strong></div>
+        <div class="metric"><span>Ø pro Tag</span><strong id="metricAverage">0,0</strong></div>
+      </div>
     </section>
 
     <section class="card">
-      <div class="grid two">
-        <label>
-          Reisedatum
-          <input id="travelDate" type="date">
-        </label>
-        <label>
-          Abfragezeit
-          <input id="queryTime" type="datetime-local">
-        </label>
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Neue Erfassung</span>
+          <h2>Preise prüfen</h2>
+        </div>
+        <span id="queryTimestampLabel" class="timestamp-badge">–</span>
       </div>
-      <label class="top-gap">
-        Bemerkung
-        <input id="batchNote" type="text" placeholder="z. B. Ferienbeginn, Streik, hohe Nachfrage">
+
+      <label class="field">
+        <span>Bemerkung für diese Abfrage</span>
+        <input id="batchNote" type="text" placeholder="optional, z. B. Ferienbeginn">
       </label>
-    </section>
 
-    <form id="entryForm">
-      <section id="routes" class="route-list"></section>
+      <div id="routesContainer" class="routes-stack"></div>
 
-      <section class="card actions">
-        <button type="submit" class="primary">Abfrage speichern</button>
-        <button type="button" id="clearInputsBtn" class="secondary">Leeren</button>
-      </section>
-    </form>
-
-    <section class="card">
-      <div class="section-head">
-        <div>
-          <h2>Erinnerungen</h2>
-          <p>Drei tägliche iPhone-Kalendererinnerungen erzeugen</p>
-        </div>
+      <div class="save-row">
+        <button id="saveObservationBtn" class="button button-primary button-large">Alle eingegebenen Preise speichern</button>
       </div>
-      <div class="grid three">
-        <label>Morgens<input id="reminder1" type="time" value="08:00"></label>
-        <label>Mittags<input id="reminder2" type="time" value="14:00"></label>
-        <label>Abends<input id="reminder3" type="time" value="20:00"></label>
-      </div>
-      <button id="calendarBtn" class="secondary full top-gap" type="button">Kalender-Erinnerungen erstellen</button>
     </section>
 
     <section class="card">
-      <div class="stats" id="stats"></div>
-    </section>
-
-    <section class="card">
-      <div class="section-head">
+      <div class="section-heading">
         <div>
+          <span class="eyebrow">Auswertung</span>
           <h2>Preisverlauf</h2>
-          <p>Günstigster Preis je Abfrage</p>
         </div>
-        <select id="chartRoute"></select>
+        <select id="analysisRouteSelect" class="compact-select"></select>
       </div>
-      <canvas id="priceChart" height="250"></canvas>
+
+      <div id="routeStats" class="route-stats-grid"></div>
+      <canvas id="priceChart" height="260"></canvas>
     </section>
 
     <section class="card">
-      <div class="section-head">
+      <div class="section-heading">
         <div>
-          <h2>Gespeicherte Abfragen</h2>
-          <p id="recordCount">0 Datensätze</p>
-        </div>
-        <div class="button-row">
-          <button id="exportBtn" class="secondary">CSV sichern</button>
-          <label class="file-button secondary">
-            CSV laden
-            <input id="importInput" type="file" accept=".csv,text/csv">
-          </label>
-          <button id="deleteAllBtn" class="danger">Alle löschen</button>
+          <span class="eyebrow">Datensicherheit</span>
+          <h2>Backup & Export</h2>
         </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Abfrage</th>
-              <th>Reise</th>
-              <th>Code</th>
-              <th>Zug</th>
-              <th>Preis</th>
-              <th>Typ</th>
-              <th>Auslastung</th>
-              <th>Notiz</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="recordsBody"></tbody>
-        </table>
+      <div class="button-grid">
+        <button id="exportProjectCsvBtn" class="button button-light">Projekt als CSV</button>
+        <button id="exportAllJsonBtn" class="button button-light">Vollständiges Backup</button>
+        <label class="button button-light file-button">
+          Backup wiederherstellen
+          <input id="importBackupInput" type="file" accept=".json,application/json">
+        </label>
       </div>
+      <p class="helper-text">Die laufenden Daten werden automatisch auf diesem Gerät gespeichert. GitHub hostet nur die App.</p>
+    </section>
+
+    <section class="card">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Historie</span>
+          <h2>Letzte Erfassungen</h2>
+        </div>
+        <button id="deleteProjectDataBtn" class="button button-danger button-small">Projektdaten löschen</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
     </section>
   </main>
 
-  <dialog id="settingsDialog">
-    <form method="dialog">
-      <h2>Verbindungen bearbeiten</h2>
-      <p>Format: CODE|Ziel|Uhrzeit|Zugnummer</p>
-      <textarea id="routesText" rows="10"></textarea>
+  <dialog id="projectDialog">
+    <form method="dialog" class="dialog-form">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Verwaltung</span>
+          <h2>Projekte</h2>
+        </div>
+        <button value="cancel" class="icon-button">×</button>
+      </div>
+      <div id="projectList" class="project-list"></div>
+      <button id="newProjectBtn" type="button" class="button button-primary">Neues Projekt anlegen</button>
+    </form>
+  </dialog>
+
+  <dialog id="projectEditDialog">
+    <form id="projectEditForm" class="dialog-form">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Projekt</span>
+          <h2 id="projectEditHeading">Neues Projekt</h2>
+        </div>
+        <button type="button" id="closeProjectEditBtn" class="icon-button">×</button>
+      </div>
+
+      <div class="two-column-grid">
+        <label class="field">
+          <span>Reisedatum</span>
+          <input id="editTravelDate" type="date" required>
+        </label>
+        <label class="field">
+          <span>Beginn der Studie</span>
+          <input id="editStudyStart" type="date" required>
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Startbahnhof</span>
+        <input id="editOrigin" type="text" value="Kassel-Wilhelmshöhe" required>
+      </label>
+
+      <div class="routes-editor-heading">
+        <h3>Verbindungen</h3>
+        <button id="addRouteBtn" type="button" class="button button-light button-small">Verbindung ergänzen</button>
+      </div>
+      <div id="routesEditor" class="routes-editor"></div>
+
       <div class="dialog-actions">
-        <button value="cancel" class="secondary">Abbrechen</button>
-        <button id="saveRoutesBtn" value="default" class="primary">Speichern</button>
+        <button type="button" id="cancelProjectEditBtn" class="button button-light">Abbrechen</button>
+        <button type="submit" class="button button-primary">Projekt speichern</button>
       </div>
     </form>
   </dialog>
 
-  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="./app.js"></script>
 </body>
 </html>

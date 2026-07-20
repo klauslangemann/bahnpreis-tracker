@@ -1,5 +1,5 @@
 
-const CACHE = "bahnpreis-tracker-v4-2";
+const CACHE = "bahnpreis-tracker-v5";
 const ASSETS = ["./","./index.html","./styles.css","./app.js","./manifest.json","./icon.svg"];
 self.addEventListener("install", event => {
   self.skipWaiting();
