@@ -176,3 +176,13 @@ dialog::backdrop { background: rgba(20,26,38,.4); backdrop-filter: blur(4px); }
   .db-button { grid-column: 1 / -1; width: 100%; }
   .two-column-grid { grid-template-columns: 1fr; }
 }
+
+.reminder-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+@media (max-width: 700px) {
+  .reminder-grid { grid-template-columns: 1fr; }
+}

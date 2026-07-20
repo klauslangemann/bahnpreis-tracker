@@ -631,6 +631,127 @@ function downloadBlob(content, filename, type) {
   URL.revokeObjectURL(url);
 }
 
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+function toIcsLocalDateTime(date, time) {
+  const [year, month, day] = date.split("-");
+  const [hour, minute] = time.split(":");
+  return `${year}${month}${day}T${hour}${minute}00`;
+}
+
+function icsEscape(text) {
+  return String(text || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function foldIcsLine(line) {
+  const limit = 73;
+  if (line.length <= limit) return line;
+  const chunks = [];
+  let rest = line;
+  while (rest.length > limit) {
+    chunks.push(rest.slice(0, limit));
+    rest = " " + rest.slice(limit);
+  }
+  chunks.push(rest);
+  return chunks.join("\r\n");
+}
+
+function createReminderIcs(times) {
+  const project = activeProject();
+  const startDate = todayISO();
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const until = project?.travelDate
+    ? project.travelDate.replace(/-/g, "") + "T235959"
+    : null;
+
+  const timezone = [
+    "BEGIN:VTIMEZONE",
+    "TZID:Europe/Berlin",
+    "X-LIC-LOCATION:Europe/Berlin",
+    "BEGIN:DAYLIGHT",
+    "TZOFFSETFROM:+0100",
+    "TZOFFSETTO:+0200",
+    "TZNAME:CEST",
+    "DTSTART:19700329T020000",
+    "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+    "END:DAYLIGHT",
+    "BEGIN:STANDARD",
+    "TZOFFSETFROM:+0200",
+    "TZOFFSETTO:+0100",
+    "TZNAME:CET",
+    "DTSTART:19701025T030000",
+    "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+    "END:STANDARD",
+    "END:VTIMEZONE"
+  ];
+
+  const events = times.map((time, index) => {
+    const uid = `bahnpreis-${time.replace(":", "")}-${Date.now()}-${index}@bahnpreis-tracker`;
+    const rrule = until ? `RRULE:FREQ=DAILY;UNTIL=${until}` : "RRULE:FREQ=DAILY";
+    return [
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;TZID=Europe/Berlin:${toIcsLocalDateTime(startDate, time)}`,
+      rrule,
+      "SUMMARY:Bahnpreise prüfen",
+      `DESCRIPTION:${icsEscape("Günstigsten Preis für alle Verbindungen im Bahnpreis-Tracker erfassen.")}`,
+      "STATUS:CONFIRMED",
+      "TRANSP:OPAQUE",
+      "BEGIN:VALARM",
+      "TRIGGER:-PT5M",
+      "ACTION:DISPLAY",
+      "DESCRIPTION:Bahnpreise prüfen",
+      "END:VALARM",
+      "END:VEVENT"
+    ];
+  });
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Bahnpreis Tracker//Version 5//DE",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    ...timezone,
+    ...events.flat(),
+    "END:VCALENDAR"
+  ];
+
+  return lines.map(foldIcsLine).join("\r\n") + "\r\n";
+}
+
+const reminderButton = $("createCalendarRemindersBtn");
+if (reminderButton) {
+  reminderButton.addEventListener("click", () => {
+    const times = [
+      $("reminderTime1").value,
+      $("reminderTime2").value,
+      $("reminderTime3").value
+    ].filter(Boolean);
+
+    if (!times.length) {
+      alert("Bitte mindestens eine Uhrzeit eintragen.");
+      return;
+    }
+
+    const uniqueTimes = [...new Set(times)].sort();
+    const ics = createReminderIcs(uniqueTimes);
+    const filename = activeProject()
+      ? `Bahnpreis-Erinnerungen-${activeProject().travelDate}.ics`
+      : "Bahnpreis-Erinnerungen.ics";
+    downloadBlob(ics, filename, "text/calendar;charset=utf-8");
+    showToast("Kalenderdatei erstellt");
+  });
+}
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));
 }

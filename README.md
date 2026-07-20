@@ -26,3 +26,19 @@
 
 Die Daten liegen automatisch im lokalen Speicher des Browsers auf dem jeweiligen Gerät.
 GitHub speichert nur die Programmdateien. Daher regelmäßig das vollständige Backup herunterladen.
+
+
+## Kalender-Erinnerungen
+
+In der App können drei tägliche Uhrzeiten eingestellt werden.
+Der Button „Kalender-Erinnerungen erstellen“ erzeugt eine Apple-kompatible ICS-Datei
+mit Zeitzone Europe/Berlin und Erinnerungsalarm.
+
+Auf iPhone/iPad:
+1. Datei erzeugen und herunterladen.
+2. In der Dateien-App lange auf die ICS-Datei drücken.
+3. „Teilen“ wählen.
+4. Am zuverlässigsten: an die eigene Mail-Adresse senden und die Anlage in Apple Mail öffnen.
+5. Dort „Alle hinzufügen“ wählen.
+
+Direktes Öffnen aus der Dateien-App wird von iOS je nach Version nicht immer angeboten.
