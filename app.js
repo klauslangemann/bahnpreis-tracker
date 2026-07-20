@@ -1,284 +1,39 @@
-const VERSION = "8.7";
-const DATA_KEY = "bahnpreis_tracker_v8_data";
-const DRAFT_KEY = "bahnpreis_tracker_v8_drafts";
-const OLD_KEYS = ["bahnpreis_tracker_v5_state", "bahnpreis_tracker_state"];
-let state = null;
-let currentShot = null;
-
-const $ = id => document.getElementById(id);
-const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-
-function escapeHtml(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function euro(v){return v==null||Number.isNaN(Number(v))?"–":new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"}).format(v)}
-function dateDE(v){if(!v)return"–";const [y,m,d]=v.split("-");return `${d}.${m}.${y}`}
-function dateTimeDE(v){if(!v)return"–";const d=new Date(v);return Number.isNaN(d.getTime())?v:new Intl.DateTimeFormat("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).format(d)}
-function parsePrice(v){const s=String(v??"").replace(/\s/g,"").replace("€","").replace(",",".");if(!s)return null;const n=Number(s);return Number.isFinite(n)?n:null}
-
-function observationTime(value){
-  if(!value)return 0;
-  const direct=Date.parse(value);
-  if(Number.isFinite(direct))return direct;
-
-  const m=String(value).match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
-  if(!m)return 0;
-  return new Date(
-    Number(m[3]), Number(m[2])-1, Number(m[1]),
-    Number(m[4]||0), Number(m[5]||0), Number(m[6]||0)
-  ).getTime();
-}
-function newestObservation(project,routeId){
-  return (project.observations||[])
-    .filter(o=>o.routeId===routeId)
-    .reduce((latest,current)=>{
-      if(!latest)return current;
-      return observationTime(current.queriedAt)>=observationTime(latest.queriedAt)
-        ? current : latest;
-    },null);
-}
-
-async function loadState(){
-  const current=localStorage.getItem(DATA_KEY);
-  if(current){state=JSON.parse(current);return}
-  for(const key of OLD_KEYS){
-    const old=localStorage.getItem(key);
-    if(old){state=JSON.parse(old);saveState();return}
-  }
-  state=await fetch("initial-data.json",{cache:"no-store"}).then(r=>r.json());
-  saveState();
-}
-function saveState(){localStorage.setItem(DATA_KEY,JSON.stringify(state))}
-function drafts(){try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||"{}")}catch{return{}}}
-function setDraft(projectId,routeId,value){const d=drafts();d[`${projectId}::${routeId}`]={...value,updatedAt:new Date().toISOString()};localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}
-function getDraft(projectId,routeId){return drafts()[`${projectId}::${routeId}`]||null}
-function clearDraft(projectId,routeId){const d=drafts();delete d[`${projectId}::${routeId}`];localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}
-function activeProject(){return state.projects.find(p=>p.id===state.activeProjectId)||state.projects[0]}
-
-function normalizeStation(v){
-  const x=String(v||"").toLowerCase().replace(/[().,-]/g," ").replace(/\s+/g," ").trim();
-  const map={
-    "frankfurt flughafen":"Frankfurt(M) Flughafen Fernbf",
-    "frankfurt m flughafen fernbf":"Frankfurt(M) Flughafen Fernbf",
-    "frankfurt m flughafen fernbahnhof":"Frankfurt(M) Flughafen Fernbf",
-    "frankfurt am main flughafen":"Frankfurt(M) Flughafen Fernbf",
-    "kassel wilhelmshöhe":"Kassel-Wilhelmshöhe",
-    "kassel wilhelmshoehe":"Kassel-Wilhelmshöhe"
-  };
-  return map[x]||v;
-}
-
-/* DB currently accepts prefilled fields via buchung/start#? with uppercase keys.
-   HD is the local departure timestamp. */
-function dbUrl(project,route){
-  const q=new URLSearchParams();
-  q.set("SO",normalizeStation(project.origin));
-  q.set("ZO",normalizeStation(route.destination));
-  q.set("HD",`${project.travelDate}T${route.time}:00`);
-  q.set("HZA","D");
-  q.set("AR","false");
-  q.set("S","true");
-  q.set("D","false");
-  return `https://www.bahn.de/buchung/start#?${q.toString()}`;
-}
-
-function normalizedText(value){
-  return String(value||"")
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-    .replace(/wilhelmshöhe/g,"wilhelmshohe")
-    .replace(/[^a-z0-9]+/g," ")
-    .replace(/\s+/g," ").trim();
-}
-function routeMatchScore(text,route){
-  const t=normalizedText(text);
-  let score=0;
-  const dest=normalizedText(route.destination);
-  const destinationWords=dest.split(" ").filter(w=>w.length>=4 && !["hauptbahnhof","flughafen","fernbf"].includes(w));
-  destinationWords.forEach(w=>{if(t.includes(w))score+=3});
-  const trainDigits=String(route.train||"").match(/\d+/)?.[0];
-  if(trainDigits && t.includes(trainDigits))score+=6;
-  const compactTime=String(route.time||"").replace(":","");
-  if(route.time && (t.includes(route.time)||t.includes(compactTime)))score+=4;
-  if(route.code && t.includes(String(route.code).toLowerCase()))score+=1;
-  return score;
-}
-function extractScreenshotData(text){
-  const flat=String(text||"").replace(/\n/g," ");
-  const prices=[];
-  for(const m of flat.matchAll(/(?:ab\s*)?(\d{1,3}[,.]\d{2})\s*€/gi)){
-    const p=m[1].replace(".",",");
-    if(!prices.includes(p))prices.push(p);
-  }
-  const low=flat.toLowerCase();
-  const load=["ausgebucht","sehr hoch","hoch","mittel","gering"].find(v=>low.includes(v))||"";
-  return {prices:prices.slice(0,2),load};
-}
-function applyScreenshotData(project,route,data){
-  const card=document.querySelector(`[data-card="${route.id}"]`);
-  if(!card)return false;
-  if(data.prices[0])card.querySelector(`[data-super="${route.id}"]`).value=data.prices[0];
-  if(data.prices[1])card.querySelector(`[data-saver="${route.id}"]`).value=data.prices[1];
-  if(data.load)card.querySelector(`[data-load="${route.id}"]`).value=data.load;
-  saveVisibleDraft(project,route.id);
-  return Boolean(data.prices.length||data.load);
-}
-
-function render(){
-  const select=$("projectSelect");
-  select.innerHTML=state.projects.map(p=>`<option value="${p.id}" ${p.id===state.activeProjectId?"selected":""}>${dateDE(p.travelDate)} · ${escapeHtml(p.origin)}</option>`).join("");
-  const p=activeProject();
-  if(!p)return;
-  state.activeProjectId=p.id;saveState();
-  $("travelDate").textContent=dateDE(p.travelDate);
-  $("routes").innerHTML=p.routes.map(route=>routeHtml(p,route)).join("");
-  bindCards(p);
-}
-
-function routeHtml(p,r){
-  const obs=(p.observations||[]).filter(o=>o.routeId===r.id).sort((a,b)=>observationTime(b.queriedAt)-observationTime(a.queriedAt));
-  const last=(p.lastQueries&&p.lastQueries[r.id])||newestObservation(p,r.id);
-  const d=getDraft(p.id,r.id);
-  const s=d?d.superPrice:(last?.superPrice??"");
-  const sp=d?d.saverPrice:(last?.saverPrice??"");
-  const load=d?d.load:(last?.load??"");
-  const shownAt=d?.updatedAt||last?.queriedAt||null;
-  const shownSuper=d?parsePrice(d.superPrice):last?.superPrice;
-  const shownSaver=d?parsePrice(d.saverPrice):last?.saverPrice;
-  return `<article class="route-card" data-card="${r.id}">
-    <div class="route-head">
-      <div class="route-title"><span class="code">${escapeHtml(r.code)}</span><h2>${escapeHtml(p.origin)} → ${escapeHtml(r.destination)}</h2><div class="route-meta">${escapeHtml(r.train)} · ${escapeHtml(r.time)} Uhr</div></div>
-      <div class="card-buttons"><button class="db" data-db="${r.id}">DB öffnen</button><button data-shot="${r.id}">Screenshot</button><button data-history="${r.id}">Verlauf</button></div>
-    </div>
-    <div class="price-grid">
-      <label class="field"><span>Super Sparpreis</span><input inputmode="decimal" data-super="${r.id}" value="${escapeHtml(String(s).replace(".",","))}" placeholder="29,99"></label>
-      <label class="field"><span>Sparpreis</span><input inputmode="decimal" data-saver="${r.id}" value="${escapeHtml(String(sp).replace(".",","))}" placeholder="39,99"></label>
-      <label class="field load"><span>Auslastung</span><select data-load="${r.id}"><option value="">–</option>${["gering","mittel","hoch","sehr hoch","ausgebucht"].map(v=>`<option ${load===v?"selected":""}>${v}</option>`).join("")}</select></label>
-    </div>
-    <div class="route-foot"><span data-last="${r.id}">Letzte Abfrage: ${shownAt?`${dateTimeDE(shownAt)} · ${euro(shownSuper)} / ${euro(shownSaver)}`:"noch keine"}</span><span class="saved" data-status="${r.id}">${d?"✓ automatisch gespeichert":""}</span></div>
-  </article>`
-}
-
-function bindCards(p){
-  document.querySelectorAll("[data-db]").forEach(b=>b.onclick=()=>{
-    const r=p.routes.find(x=>x.id===b.dataset.db);saveVisibleDraft(p,r.id);window.open(dbUrl(p,r),"_blank","noopener,noreferrer");
-  });
-  document.querySelectorAll("[data-shot]").forEach(b=>b.onclick=()=>{
-    const r=p.routes.find(x=>x.id===b.dataset.shot);currentShot={p,r};$("screenshotInput").click();
-  });
-  document.querySelectorAll("[data-history]").forEach(b=>b.onclick=()=>showHistory(p,p.routes.find(x=>x.id===b.dataset.history)));
-  document.querySelectorAll(".route-card input,.route-card select").forEach(el=>{
-    const id=el.dataset.super||el.dataset.saver||el.dataset.load;
-    let timer;const fn=()=>{clearTimeout(timer);$("globalStatus").textContent="";timer=setTimeout(()=>saveVisibleDraft(p,id),250)};
-    el.addEventListener("input",fn);el.addEventListener("change",fn);
-  });
-}
-function saveVisibleDraft(p,id){
-  const c=document.querySelector(`[data-card="${id}"]`);if(!c)return;
-  const value={
-    superPrice:c.querySelector(`[data-super="${id}"]`).value,
-    saverPrice:c.querySelector(`[data-saver="${id}"]`).value,
-    load:c.querySelector(`[data-load="${id}"]`).value
-  };
-  setDraft(p.id,id,value);
-  const d=getDraft(p.id,id);
-  const s=document.querySelector(`[data-status="${id}"]`);
-  if(s)s.textContent="✓ automatisch gespeichert";
-  const last=document.querySelector(`[data-last="${id}"]`);
-  if(last)last.textContent=`Letzte Abfrage: ${dateTimeDE(d.updatedAt)} · ${euro(parsePrice(value.superPrice))} / ${euro(parsePrice(value.saverPrice))}`;
-}
-
-$("projectSelect").onchange=e=>{state.activeProjectId=e.target.value;saveState();render()};
-
-$("completeBtn").onclick=()=>{
-  const p=activeProject();
-  let count=0;
-  const now=new Date().toISOString();
-  p.lastQueries=p.lastQueries||{};
-
-  p.routes.forEach(r=>{
-    const d=getDraft(p.id,r.id);
-    if(!d)return;
-
-    const superPrice=parsePrice(d.superPrice);
-    const saverPrice=parsePrice(d.saverPrice);
-    if(superPrice==null&&saverPrice==null&&!d.load)return;
-
-    const vals=[superPrice,saverPrice].filter(v=>v!=null);
-    const price=vals.length?Math.min(...vals):null;
-    const observation={
-      id:uid(),
-      queriedAt:now,
-      travelDate:p.travelDate,
-      routeId:r.id,
-      code:r.code,
-      origin:p.origin,
-      destination:r.destination,
-      time:r.time,
-      train:r.train,
-      superPrice,
-      saverPrice,
-      price,
-      fareType:price===superPrice?"Super Sparpreis":price===saverPrice?"Sparpreis":"",
-      load:d.load||"",
-      note:""
-    };
-
-    p.observations.push(observation);
-    p.lastQueries[r.id]=observation;
-    clearDraft(p.id,r.id);
-    count++;
-  });
-
-  p.updatedAt=now;
-  saveState();
-  render();
-  $("globalStatus").textContent=count
-    ?`${count} Verbindungen in den Verlauf übernommen.`
-    :"Keine Eingaben vorhanden.";
-};
-
-$("backupBtn").onclick=()=>{
-  const out={exportedAt:new Date().toISOString(),version:8,activeProjectId:state.activeProjectId,projects:state.projects};
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:"application/json"}));a.download=`bahnpreis_tracker_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);
-};
-$("restoreBtn").onclick=()=>$("restoreInput").click();
-$("restoreInput").onchange=async e=>{
-  try{const x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.projects))throw new Error();state={...x,version:8};saveState();localStorage.removeItem(DRAFT_KEY);render();$("globalStatus").textContent="Backup erfolgreich wiederhergestellt."}
-  catch{$("globalStatus").textContent="Das Backup konnte nicht gelesen werden."}
-  e.target.value="";
-};
-
-$("screenshotInput").onchange=async e=>{
-  const file=e.target.files[0];if(!file||!currentShot)return;
-  const {p,r}=currentShot;$("globalStatus").textContent="Screenshot wird gelesen …";
-  try{
-    const result=await Tesseract.recognize(file,"deu");
-    const data=extractScreenshotData(result.data.text);
-    applyScreenshotData(p,r,data);
-    $("globalStatus").textContent=data.prices.length
-      ?`Screenshot erkannt: ${data.prices.join(" / ")} €`
-      :"Keine Preise sicher erkannt.";
-  }catch{$("globalStatus").textContent="Screenshot konnte nicht gelesen werden."}
-  e.target.value="";
-};
-
-
-
-function showHistory(p,r){
-  const rows=(p.observations||[]).filter(o=>o.routeId===r.id).sort((a,b)=>observationTime(a.queriedAt)-observationTime(b.queriedAt));
-  $("historyTitle").textContent=`${r.destination} · Preisverlauf`;
-  $("historyTable").innerHTML=rows.length?`<table><thead><tr><th>Zeitpunkt</th><th>Super Sparpreis</th><th>Sparpreis</th><th>Auslastung</th></tr></thead><tbody>${rows.slice().reverse().map(o=>`<tr><td>${dateTimeDE(o.queriedAt)}</td><td>${euro(o.superPrice)}</td><td>${euro(o.saverPrice)}</td><td>${escapeHtml(o.load||"–")}</td></tr>`).join("")}</tbody></table>`:"Noch keine Daten.";
-  drawChart(rows);$("historyDialog").showModal();
-}
-function drawChart(rows){
-  const c=$("historyChart"),ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);
-  const vals=rows.flatMap(o=>[o.superPrice,o.saverPrice]).filter(v=>v!=null);
-  if(!vals.length){ctx.fillText("Noch keine Preisdaten",20,40);return}
-  const min=Math.min(...vals),max=Math.max(...vals),pad=45,w=c.width-pad*2,h=c.height-pad*2;
-  ctx.strokeStyle="#ccd3db";ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,pad+h);ctx.lineTo(pad+w,pad+h);ctx.stroke();
-  [["superPrice","#17202b"],["saverPrice","#6d7b8c"]].forEach(([key,color])=>{ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();rows.forEach((o,i)=>{if(o[key]==null)return;const x=pad+(rows.length===1?w/2:i*w/(rows.length-1));const y=pad+h-(o[key]-min)/(max-min||1)*h;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)});ctx.stroke()});
-  ctx.fillStyle="#17202b";ctx.fillText(`${max.toFixed(2)} €`,4,pad+5);ctx.fillText(`${min.toFixed(2)} €`,4,pad+h);
-}
+const VERSION="9.0";
+const DATA_KEY="bahnpreis_tracker_v9_preview";
+const DRAFT_KEY="bahnpreis_tracker_v9_preview_drafts";
+let state=null, currentDestination=null;
+const $=id=>document.getElementById(id);
+const uid=()=>crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`;
+function esc(v=""){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function euro(v){return v==null||v===""?"–":new Intl.NumberFormat("de-DE",{style:"currency",currency:"EUR"}).format(Number(v))}
+function dateDE(v){if(!v)return"–";const[y,m,d]=v.split("-");return`${d}.${m}.${y}`}
+function dateTime(v){if(!v)return"–";return new Intl.DateTimeFormat("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).format(new Date(v))}
+function price(v){const s=String(v??"").replace(/\s/g,"").replace("€","").replace(",", ".");const n=Number(s);return Number.isFinite(n)?n:null}
+async function load(){const x=localStorage.getItem(DATA_KEY);state=x?JSON.parse(x):await fetch("initial-data.json",{cache:"no-store"}).then(r=>r.json());save();render()}
+function save(){localStorage.setItem(DATA_KEY,JSON.stringify(state))}
+function project(){return state.projects.find(p=>p.id===state.activeProjectId)||state.projects[0]}
+function draftKey(p,r){return`${p.id}::${r.id}`}
+function getDraft(p,r){try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||"{}")[draftKey(p,r)]||null}catch{return null}}
+function setDraft(p,r,v){let d={};try{d=JSON.parse(localStorage.getItem(DRAFT_KEY)||"{}")}catch{}d[draftKey(p,r)]={...v,updatedAt:new Date().toISOString()};localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}
+function clearDraft(p,r){let d=JSON.parse(localStorage.getItem(DRAFT_KEY)||"{}");delete d[draftKey(p,r)];localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}
+function groups(p){const m=new Map();p.routes.forEach(r=>{if(!m.has(r.destination))m.set(r.destination,[]);m.get(r.destination).push(r)});return [...m.entries()]}
+function latest(p,r){return(p.observations||[]).filter(o=>o.routeId===r.id).sort((a,b)=>Date.parse(b.queriedAt)-Date.parse(a.queriedAt))[0]||null}
+function dbUrl(p,destination){const q=new URLSearchParams({SO:p.origin,ZO:destination,HD:`${p.travelDate}T06:00:00`,HZA:"D",AR:"false",S:"true",D:"false"});return`https://www.bahn.de/buchung/start#?${q}`}
+function render(){const p=project();$("projectSelect").innerHTML=state.projects.map(x=>`<option value="${x.id}">${dateDE(x.travelDate)} · ${esc(x.origin)}</option>`).join("");$("travelDate").textContent=dateDE(p.travelDate);$("destinations").innerHTML=groups(p).map(([dest,rs])=>card(p,dest,rs)).join("");bind(p)}
+function card(p,dest,rs){return`<article class="route-card"><div class="route-head"><div class="route-title"><span class="code">${esc(rs[0].code)}</span><h2>${esc(p.origin)} → ${esc(dest)}</h2></div><div class="card-buttons"><button class="db" data-db="${esc(dest)}">DB öffnen</button><button data-history="${esc(dest)}">Verlauf</button></div></div><div class="window-grid">${rs.map(r=>{const x=getDraft(p,r)||latest(p,r);return`<div class="window-row"><div class="window-name">${r.slotLabel}</div><div class="window-value ${x?'':'empty'}">${x?`${esc(x.train||r.train||'Zug offen')} · ${esc(x.time||r.time)}`:'noch nicht erfasst'}</div><div class="window-value">${x?`${euro(x.superPrice)} / ${euro(x.saverPrice)}`:'–'}</div><div class="window-value">${x?esc(x.load||'Auslastung –'):'–'}</div></div>`}).join("")}</div><button class="import-btn" data-import="${esc(dest)}">3 Verbindungen erfassen und prüfen</button>${rs.some(r=>getDraft(p,r))?'<div class="checked">✓ geprüfte Werte warten auf „Abfrage abschließen“</div>':''}</article>`}
+function bind(p){document.querySelectorAll('[data-db]').forEach(b=>b.onclick=()=>window.open(dbUrl(p,b.dataset.db),'_blank','noopener,noreferrer'));document.querySelectorAll('[data-import]').forEach(b=>b.onclick=()=>openImport(p,b.dataset.import));document.querySelectorAll('[data-history]').forEach(b=>b.onclick=()=>showHistory(p,b.dataset.history))}
+function openImport(p,dest){currentDestination=dest;$("importTitle").textContent=dest;const rs=p.routes.filter(r=>r.destination===dest);$("reviewRows").innerHTML=rs.map(r=>{const x=getDraft(p,r)||latest(p,r)||{};return`<div class="review-row" data-review="${r.id}"><div class="slot">${r.slotLabel}</div><div class="review-fields"><label>Abfahrt<input data-time value="${esc(x.time||r.time||'')}"></label><label>Zug<input data-train value="${esc(x.train||r.train||'')}"></label><label>Super Sparpreis<input data-super inputmode="decimal" value="${esc(String(x.superPrice??'').replace('.',','))}"></label><label>Sparpreis<input data-saver inputmode="decimal" value="${esc(String(x.saverPrice??'').replace('.',','))}"></label><label>Auslastung<select data-load><option value="">–</option>${['gering','mittel','hoch','sehr hoch','ausgebucht'].map(v=>`<option ${x.load===v?'selected':''}>${v}</option>`).join('')}</select></label></div></div>`}).join('');$("ocrStatus").textContent="Noch kein Screenshot ausgewählt.";$("importDialog").showModal()}
+function parseCandidates(text){const lines=String(text).split(/\n+/).map(x=>x.trim()).filter(Boolean);const out=[];for(let i=0;i<lines.length;i++){const area=lines.slice(Math.max(0,i-2),Math.min(lines.length,i+7)).join(' ');const tm=area.match(/\b([0-2]?\d[:.]\d{2})\b/);const tr=area.match(/\b(ICE|IC|EC|RE|RB)\s*\d{1,4}\b/i);const ps=[...area.matchAll(/(\d{1,3}[,.]\d{2})\s*€/g)].map(m=>m[1]);if(tm&&ps.length){const t=tm[1].replace('.',':');if(!out.some(x=>x.time===t))out.push({time:t,train:tr?tr[0].toUpperCase().replace(/\s+/,' '):'',superPrice:ps[0],saverPrice:ps[1]||'',load:(area.toLowerCase().match(/ausgebucht|sehr hoch|hoch|mittel|gering/)||[''])[0]})}}
+return out.sort((a,b)=>a.time.localeCompare(b.time))}
+function assignCandidates(cands){const rows=[...document.querySelectorAll('[data-review]')];const targets=[9*60,13*60,18*60];const used=new Set();rows.forEach((row,i)=>{let best=-1,dist=1e9;cands.forEach((c,j)=>{if(used.has(j))return;const[h,m]=c.time.split(':').map(Number);const d=Math.abs(h*60+m-targets[i]);if(d<dist){dist=d;best=j}});if(best<0)return;used.add(best);const c=cands[best];row.querySelector('[data-time]').value=c.time;row.querySelector('[data-train]').value=c.train;row.querySelector('[data-super]').value=c.superPrice;row.querySelector('[data-saver]').value=c.saverPrice;row.querySelector('[data-load]').value=c.load||''})}
+$("chooseShots").onclick=()=>$("multiShotInput").click();
+$("multiShotInput").onchange=async e=>{const files=[...e.target.files];if(!files.length)return;$("ocrStatus").textContent=`${files.length} Screenshot(s) werden gelesen …`;let all=[];try{for(let i=0;i<files.length;i++){const r=await Tesseract.recognize(files[i],'deu');all=all.concat(parseCandidates(r.data.text));$("ocrStatus").textContent=`Screenshot ${i+1} von ${files.length} gelesen …`}assignCandidates(all);$("ocrStatus").textContent=`${all.length} mögliche Verbindung(en) erkannt. Bitte alle Werte prüfen.`}catch{$("ocrStatus").textContent='OCR fehlgeschlagen. Du kannst die Werte trotzdem manuell eintragen.'}e.target.value=''};
+$("acceptImport").onclick=()=>{const p=project();document.querySelectorAll('[data-review]').forEach(row=>{const r=p.routes.find(x=>x.id===row.dataset.review);setDraft(p,r,{time:row.querySelector('[data-time]').value,train:row.querySelector('[data-train]').value,superPrice:row.querySelector('[data-super]').value,saverPrice:row.querySelector('[data-saver]').value,load:row.querySelector('[data-load]').value})});$("importDialog").close();render();$("globalStatus").textContent=`${currentDestination}: geprüfte Werte übernommen, aber noch nicht in der Historie gespeichert.`};
+$("cancelImport").onclick=()=>$("importDialog").close();$("closeImport").onclick=()=>$("importDialog").close();
+$("completeBtn").onclick=()=>{const p=project(),now=new Date().toISOString();let n=0;p.routes.forEach(r=>{const d=getDraft(p,r);if(!d)return;const sp=price(d.superPrice),sa=price(d.saverPrice);if(sp==null&&sa==null)return;p.observations.push({id:uid(),queriedAt:now,travelDate:p.travelDate,routeId:r.id,code:r.code,origin:p.origin,destination:r.destination,slot:r.slot,slotLabel:r.slotLabel,time:d.time,train:d.train,superPrice:sp,saverPrice:sa,price:[sp,sa].filter(x=>x!=null).sort((a,b)=>a-b)[0]??null,fareType:sp!=null?'Super Sparpreis':'Sparpreis',load:d.load||'',note:'kontrollierter Mehrfachimport'});r.time=d.time;r.train=d.train;clearDraft(p,r);n++});p.updatedAt=now;save();render();$("globalStatus").textContent=n?`${n} geprüfte Verbindungen gespeichert.`:'Keine geprüften Werte vorhanden.'};
+$("backupBtn").onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({...state,exportedAt:new Date().toISOString(),version:9},null,2)],{type:'application/json'}));a.download=`bahnpreis_tracker_v9_${new Date().toISOString().slice(0,10)}.json`;a.click()};
+$("restoreBtn").onclick=()=>$("restoreInput").click();$("restoreInput").onchange=async e=>{try{const x=JSON.parse(await e.target.files[0].text());if(!Array.isArray(x.projects))throw 0;state=x;save();render();$("globalStatus").textContent='Backup wiederhergestellt.'}catch{$("globalStatus").textContent='Backup nicht lesbar.'}e.target.value=''};
+function showHistory(p,dest){const rows=(p.observations||[]).filter(o=>o.destination===dest).sort((a,b)=>Date.parse(b.queriedAt)-Date.parse(a.queriedAt));$("historyTitle").textContent=`${dest} · Verlauf`;$("historyTable").innerHTML=rows.length?`<table><thead><tr><th>Abfrage</th><th>Zeitfenster</th><th>Zug</th><th>Abfahrt</th><th>Super</th><th>Spar</th></tr></thead><tbody>${rows.map(o=>`<tr><td>${dateTime(o.queriedAt)}</td><td>${esc(o.slotLabel||o.slot||'')}</td><td>${esc(o.train||'')}</td><td>${esc(o.time||'')}</td><td>${euro(o.superPrice)}</td><td>${euro(o.saverPrice)}</td></tr>`).join('')}</tbody></table>`:'Noch keine Daten.';$("historyDialog").showModal()}
 $("closeHistory").onclick=()=>$("historyDialog").close();
-
-if("serviceWorker"in navigator)navigator.serviceWorker.register("service-worker.js");
-loadState().then(render);
+$("projectSelect").onchange=e=>{state.activeProjectId=e.target.value;save();render()};
+if('serviceWorker'in navigator)navigator.serviceWorker.register('service-worker.js');load();

@@ -1,5 +1,3 @@
-# Bahnpreis-Tracker V8.7
+# Bahnpreis-Tracker V9 Vorschau
 
-Änderung:
-- Die Funktion „5 Screenshots in Reihenfolge einlesen“ wurde vollständig entfernt.
-- Screenshots werden wieder nur einzeln und gezielt einer Karte zugeordnet.
+Kontrollierter Mehrfachimport pro Ziel. Eine oder mehrere Ergebnislisten werden per OCR gelesen. Drei Zeitfenster werden vorgeschlagen und müssen vor der Übernahme geprüft werden.

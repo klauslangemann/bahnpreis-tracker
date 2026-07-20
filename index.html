@@ -4,56 +4,47 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f4f6f8">
-  <title>Bahnpreis-Tracker V8.7</title>
+  <title>Bahnpreis-Tracker V9 Vorschau</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=8.7">
+  <link rel="stylesheet" href="styles.css?v=9.0">
 </head>
 <body>
   <header class="topbar">
-    <div>
-      <div class="eyebrow">PREISBEOBACHTUNG</div>
-      <h1>Bahnpreis-Tracker</h1>
-    </div>
-    <span class="version">V8.7</span>
+    <div><div class="eyebrow">KONTROLLIERTER MEHRFACHIMPORT</div><h1>Bahnpreis-Tracker</h1></div>
+    <span class="version">V9 Vorschau</span>
   </header>
-
   <main>
     <section class="projectbar card">
-      <div>
-        <label for="projectSelect">Projekt</label>
-        <select id="projectSelect"></select>
-      </div>
-      <div class="travel-date">
-        <span>Reisetag</span>
-        <strong id="travelDate">–</strong>
-      </div>
+      <div><label for="projectSelect">Projekt</label><select id="projectSelect"></select></div>
+      <div class="travel-date"><span>Reisetag</span><strong id="travelDate">–</strong></div>
     </section>
-
-    <section id="routes" class="routes"></section>
-
+    <section class="info card">
+      <strong>Neuer Ablauf</strong>
+      <p>Pro Ziel eine oder mehrere Ergebnislisten als Screenshot auswählen. Die App schlägt drei Verbindungen vor. Gespeichert wird erst nach deiner Kontrolle.</p>
+    </section>
+    <section id="destinations" class="routes"></section>
     <section class="card actions-card">
-      <button id="completeBtn" class="primary">Abfrage abschließen</button>
-      <div class="secondary-actions">
-        <button id="backupBtn">Vollständiges Backup</button>
-        <button id="restoreBtn">Backup wiederherstellen</button>
-        <input id="restoreInput" type="file" accept=".json,application/json" hidden>
-      </div>
+      <button id="completeBtn" class="primary">Geprüfte Abfrage abschließen</button>
+      <div class="secondary-actions"><button id="backupBtn">Vollständiges Backup</button><button id="restoreBtn">Backup wiederherstellen</button><input id="restoreInput" type="file" accept=".json,application/json" hidden></div>
       <p id="globalStatus" class="status"></p>
     </section>
   </main>
 
+  <dialog id="importDialog">
+    <div class="dialog-head"><div><div class="eyebrow">VOR DEM SPEICHERN PRÜFEN</div><h2 id="importTitle">Verbindungen erfassen</h2></div><button id="closeImport" aria-label="Schließen">×</button></div>
+    <p class="dialog-note">Wähle eine oder mehrere Screenshots derselben DB-Ergebnisliste. Falsche OCR-Werte kannst du direkt korrigieren.</p>
+    <button id="chooseShots" class="bulk">Screenshot(s) auswählen</button>
+    <input id="multiShotInput" type="file" accept="image/*" multiple hidden>
+    <div id="ocrStatus" class="ocr-status"></div>
+    <div id="reviewRows"></div>
+    <div class="dialog-actions"><button id="cancelImport">Abbrechen</button><button id="acceptImport" class="primary">Geprüfte Werte übernehmen</button></div>
+  </dialog>
+
   <dialog id="historyDialog">
-    <div class="dialog-head">
-      <h2 id="historyTitle">Preisverlauf</h2>
-      <button id="closeHistory" aria-label="Schließen">×</button>
-    </div>
-    <canvas id="historyChart" width="700" height="320"></canvas>
+    <div class="dialog-head"><h2 id="historyTitle">Preisverlauf</h2><button id="closeHistory">×</button></div>
     <div id="historyTable"></div>
   </dialog>
 
-  <input id="screenshotInput" type="file" accept="image/*" hidden>
-
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="app.js?v=8.7"></script>
-</body>
-</html>
+  <script src="app.js?v=9.0"></script>
+</body></html>

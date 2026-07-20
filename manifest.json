@@ -1,9 +1,8 @@
 {
-  "name": "Bahnpreis-Tracker V8.7",
-  "short_name": "Bahnpreise",
+  "name": "Bahnpreis-Tracker V9 Vorschau",
+  "short_name": "Bahnpreis V9",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f4f6f8",
-  "theme_color": "#f4f6f8",
-  "icons": []
+  "theme_color": "#f4f6f8"
 }

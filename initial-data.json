@@ -1,6 +1,6 @@
 {
   "exportedAt": "2026-07-20T12:34:25.746Z",
-  "version": 5,
+  "version": 9,
   "activeProjectId": "d0a8cbb1-8f35-46ca-836f-2b402da20589",
   "projects": [
     {
@@ -10,39 +10,139 @@
       "origin": "Kassel-Wilhelmshöhe",
       "routes": [
         {
-          "id": "3e1d07a1-b710-480e-a41c-c4e8dbee56fe",
+          "id": "3e1d07a1-b710-480e-a41c-c4e8dbee56fe-morning",
           "code": "HAM",
           "destination": "Hamburg Hbf",
           "time": "08:37",
-          "train": "ICE 686"
+          "train": "ICE 686",
+          "slot": "morning",
+          "slotLabel": "Morgens"
         },
         {
-          "id": "44691591-a913-4ffb-9983-9a2c370dea2b",
+          "id": "3e1d07a1-b710-480e-a41c-c4e8dbee56fe-midday",
+          "code": "HAM",
+          "destination": "Hamburg Hbf",
+          "time": "13:00",
+          "train": "",
+          "slot": "midday",
+          "slotLabel": "Mittags"
+        },
+        {
+          "id": "3e1d07a1-b710-480e-a41c-c4e8dbee56fe-evening",
+          "code": "HAM",
+          "destination": "Hamburg Hbf",
+          "time": "18:00",
+          "train": "",
+          "slot": "evening",
+          "slotLabel": "Abends"
+        },
+        {
+          "id": "44691591-a913-4ffb-9983-9a2c370dea2b-morning",
           "code": "BER",
           "destination": "Berlin Hbf",
           "time": "08:46",
-          "train": "ICE 378"
+          "train": "ICE 378",
+          "slot": "morning",
+          "slotLabel": "Morgens"
         },
         {
-          "id": "e897f762-6276-4d65-a719-faf5af8e71f3",
+          "id": "44691591-a913-4ffb-9983-9a2c370dea2b-midday",
+          "code": "BER",
+          "destination": "Berlin Hbf",
+          "time": "13:00",
+          "train": "",
+          "slot": "midday",
+          "slotLabel": "Mittags"
+        },
+        {
+          "id": "44691591-a913-4ffb-9983-9a2c370dea2b-evening",
+          "code": "BER",
+          "destination": "Berlin Hbf",
+          "time": "18:00",
+          "train": "",
+          "slot": "evening",
+          "slotLabel": "Abends"
+        },
+        {
+          "id": "e897f762-6276-4d65-a719-faf5af8e71f3-morning",
           "code": "MUC",
           "destination": "München Hbf",
           "time": "08:23",
-          "train": "ICE 783"
+          "train": "ICE 783",
+          "slot": "morning",
+          "slotLabel": "Morgens"
         },
         {
-          "id": "7ce18f12-d110-4bb6-9d4c-1527ebcf4f66",
+          "id": "e897f762-6276-4d65-a719-faf5af8e71f3-midday",
+          "code": "MUC",
+          "destination": "München Hbf",
+          "time": "13:00",
+          "train": "",
+          "slot": "midday",
+          "slotLabel": "Mittags"
+        },
+        {
+          "id": "e897f762-6276-4d65-a719-faf5af8e71f3-evening",
+          "code": "MUC",
+          "destination": "München Hbf",
+          "time": "18:00",
+          "train": "",
+          "slot": "evening",
+          "slotLabel": "Abends"
+        },
+        {
+          "id": "7ce18f12-d110-4bb6-9d4c-1527ebcf4f66-morning",
           "code": "FRA",
           "destination": "Frankfurt (M) Flughafen Fernbf",
           "time": "08:13",
-          "train": "ICE 793"
+          "train": "ICE 793",
+          "slot": "morning",
+          "slotLabel": "Morgens"
         },
         {
-          "id": "7eca4312-e78a-486a-9f7b-8de35662ee65",
+          "id": "7ce18f12-d110-4bb6-9d4c-1527ebcf4f66-midday",
+          "code": "FRA",
+          "destination": "Frankfurt (M) Flughafen Fernbf",
+          "time": "13:00",
+          "train": "",
+          "slot": "midday",
+          "slotLabel": "Mittags"
+        },
+        {
+          "id": "7ce18f12-d110-4bb6-9d4c-1527ebcf4f66-evening",
+          "code": "FRA",
+          "destination": "Frankfurt (M) Flughafen Fernbf",
+          "time": "18:00",
+          "train": "",
+          "slot": "evening",
+          "slotLabel": "Abends"
+        },
+        {
+          "id": "7eca4312-e78a-486a-9f7b-8de35662ee65-morning",
           "code": "HAJ",
           "destination": "Hannover Hbf",
           "time": "08:13",
-          "train": "ICE 776"
+          "train": "ICE 776",
+          "slot": "morning",
+          "slotLabel": "Morgens"
+        },
+        {
+          "id": "7eca4312-e78a-486a-9f7b-8de35662ee65-midday",
+          "code": "HAJ",
+          "destination": "Hannover Hbf",
+          "time": "13:00",
+          "train": "",
+          "slot": "midday",
+          "slotLabel": "Mittags"
+        },
+        {
+          "id": "7eca4312-e78a-486a-9f7b-8de35662ee65-evening",
+          "code": "HAJ",
+          "destination": "Hannover Hbf",
+          "time": "18:00",
+          "train": "",
+          "slot": "evening",
+          "slotLabel": "Abends"
         }
       ],
       "observations": [
@@ -50,7 +150,7 @@
           "id": "05161285-0d8e-4198-ae16-5b0a1ae84c93",
           "queriedAt": "2026-07-20T14:23",
           "travelDate": "2026-09-21",
-          "routeId": "7ce18f12-d110-4bb6-9d4c-1527ebcf4f66",
+          "routeId": "7ce18f12-d110-4bb6-9d4c-1527ebcf4f66-morning",
           "code": "FRA",
           "origin": "Kassel-Wilhelmshöhe",
           "destination": "Frankfurt (M) Flughafen Fernbf",
@@ -67,7 +167,7 @@
           "id": "d85a28f3-41db-48b7-bbb5-7c7ab9b40c71",
           "queriedAt": "2026-07-20T14:25",
           "travelDate": "2026-09-21",
-          "routeId": "7eca4312-e78a-486a-9f7b-8de35662ee65",
+          "routeId": "7eca4312-e78a-486a-9f7b-8de35662ee65-morning",
           "code": "HAJ",
           "origin": "Kassel-Wilhelmshöhe",
           "destination": "Hannover Hbf",
@@ -84,7 +184,7 @@
           "id": "509dd8c1-1bef-436e-809b-318c1e3c6ad5",
           "queriedAt": "2026-07-20T14:26",
           "travelDate": "2026-09-21",
-          "routeId": "e897f762-6276-4d65-a719-faf5af8e71f3",
+          "routeId": "e897f762-6276-4d65-a719-faf5af8e71f3-morning",
           "code": "MUC",
           "origin": "Kassel-Wilhelmshöhe",
           "destination": "München Hbf",
@@ -101,7 +201,7 @@
           "id": "64720ba2-b23c-4b10-bd3c-8a9bf43dd0b5",
           "queriedAt": "2026-07-20T14:27",
           "travelDate": "2026-09-21",
-          "routeId": "3e1d07a1-b710-480e-a41c-c4e8dbee56fe",
+          "routeId": "3e1d07a1-b710-480e-a41c-c4e8dbee56fe-morning",
           "code": "HAM",
           "origin": "Kassel-Wilhelmshöhe",
           "destination": "Hamburg Hbf",
@@ -118,7 +218,7 @@
           "id": "f7e16c96-2876-4c09-831c-53c90a2262a0",
           "queriedAt": "2026-07-20T14:28",
           "travelDate": "2026-09-21",
-          "routeId": "44691591-a913-4ffb-9983-9a2c370dea2b",
+          "routeId": "44691591-a913-4ffb-9983-9a2c370dea2b-morning",
           "code": "BER",
           "origin": "Kassel-Wilhelmshöhe",
           "destination": "Berlin Hbf",
