@@ -268,3 +268,21 @@ dialog::backdrop { background: rgba(20,26,38,.4); backdrop-filter: blur(4px); }
 @media (max-width: 480px) {
   .route-input-grid.three-prices { grid-template-columns: 1fr; }
 }
+
+.monitor-stack{display:grid;gap:14px;margin-top:16px}
+.monitor-card{border:1px solid #d8dee8;border-radius:20px;padding:16px;background:#fff;box-shadow:0 8px 24px rgba(17,24,39,.05)}
+.monitor-card.is-pending{border-color:#8ea7c8;box-shadow:0 0 0 3px rgba(64,99,150,.10)}
+.monitor-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.monitor-route h3{margin:5px 0 4px;font-size:1.05rem}
+.monitor-meta{color:#6b7280;font-size:.82rem;line-height:1.45}
+.monitor-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.monitor-prices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) minmax(140px,.8fr);gap:10px;margin-top:14px}
+.monitor-last{margin-top:12px;padding-top:11px;border-top:1px solid #eceff3;color:#6b7280;font-size:.8rem;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.monitor-last strong{color:#1f2937}
+.monitor-pending-note{margin-top:10px;padding:10px 12px;border-radius:12px;background:#edf3fa;color:#304e75;font-size:.8rem}
+.button-small{padding:9px 12px;min-height:38px;font-size:.8rem}
+.monitor-card input.changed,.monitor-card select.changed{border-color:#5777a6;box-shadow:0 0 0 2px rgba(87,119,166,.12)}
+.entry-footer{margin-top:16px;display:flex;justify-content:flex-end}
+.version-badge{display:inline-flex;border-radius:999px;padding:4px 9px;background:#eef1f5;color:#596273;font-size:.7rem;font-weight:800}
+@media(max-width:760px){.monitor-head{flex-direction:column}.monitor-actions{width:100%;justify-content:stretch}.monitor-actions .button{flex:1}.monitor-prices{grid-template-columns:1fr 1fr}.monitor-prices .load-field{grid-column:1/-1}}
+@media(max-width:460px){.monitor-prices{grid-template-columns:1fr}.monitor-prices .load-field{grid-column:auto}}

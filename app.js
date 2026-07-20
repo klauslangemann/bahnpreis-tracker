@@ -100,7 +100,6 @@ function renderAll() {
   renderAnalysis();
   renderHistory();
   renderProjectList();
-  renderScreenshotPanel();
   $("queryTimestampLabel").textContent = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
 }
 
@@ -147,39 +146,104 @@ function renderRoutes() {
     return;
   }
 
-  container.innerHTML = project.routes.map((route, index) => `
-    <article class="route-card">
-      <div class="route-card-header">
-        <div class="route-code">${escapeHtml(route.code)}</div>
-        <div>
-          <div class="route-title">${escapeHtml(route.destination)}</div>
-          <div class="route-subtitle">${escapeHtml(route.train || "Zugnummer fehlt")} · ${escapeHtml(route.time || "Zeit fehlt")}</div>
+  const pending = getPendingScreenshotRoute();
+
+  container.innerHTML = project.routes.map(route => {
+    const last = [...(project.observations || [])]
+      .filter(o => o.routeId === route.id)
+      .sort((a,b) => b.queriedAt.localeCompare(a.queriedAt))[0];
+
+    const pendingHere = pending?.project?.id === project.id && pending?.route?.id === route.id;
+    const lastText = last
+      ? `${formatDateTime(last.queriedAt)} · SSP ${formatPrice(last.superPrice)} · SP ${formatPrice(last.saverPrice)}`
+      : "Noch keine Beobachtung gespeichert";
+
+    return `
+      <article class="monitor-card ${pendingHere ? "is-pending" : ""}" data-monitor-card="${route.id}">
+        <div class="monitor-head">
+          <div class="monitor-route">
+            <span class="version-badge">${escapeHtml(route.code)}</span>
+            <h3>${escapeHtml(project.origin)} → ${escapeHtml(route.destination)}</h3>
+            <div class="monitor-meta">
+              ${formatDate(project.travelDate)} · ${escapeHtml(route.time || "Zeit fehlt")}
+              ${route.train ? ` · ${escapeHtml(route.train)}` : ""}
+            </div>
+          </div>
+          <div class="monitor-actions">
+            <button type="button" class="button button-light button-small" data-db-route-id="${route.id}">Bei DB öffnen</button>
+            <button type="button" class="button button-primary button-small" data-shot-route-id="${route.id}">Screenshot importieren</button>
+          </div>
         </div>
-        <button type="button" class="db-button" data-db-route="${index}">Bei DB suchen</button>
-      </div>
-      <div class="route-input-grid three-prices">
-        <label class="field">
-          <span>Super Sparpreis</span>
-          <input inputmode="decimal" data-entry-super="${route.id}" placeholder="z. B. 29,99">
-        </label>
-        <label class="field">
-          <span>Sparpreis</span>
-          <input inputmode="decimal" data-entry-saver="${route.id}" placeholder="z. B. 39,99">
-        </label>
-        <label class="field">
-          <span>Auslastung</span>
-          <select data-entry-load="${route.id}">
-            <option value="">–</option>
-            <option>gering</option>
-            <option>mittel</option>
-            <option>hoch</option>
-            <option>sehr hoch</option>
-            <option>ausgebucht</option>
-          </select>
-        </label>
-      </div>
-    </article>
-  `).join("");
+
+        ${pendingHere ? `<div class="monitor-pending-note">Zuletzt bei DB geöffnet. Der nächste Screenshot wird automatisch dieser Verbindung zugeordnet.</div>` : ""}
+
+        <div class="monitor-prices">
+          <label class="field">
+            <span>Super Sparpreis</span>
+            <input inputmode="decimal" data-entry-super="${route.id}" value="${last?.superPrice != null ? String(last.superPrice).replace(".", ",") : ""}" placeholder="z. B. 29,99">
+          </label>
+          <label class="field">
+            <span>Sparpreis</span>
+            <input inputmode="decimal" data-entry-saver="${route.id}" value="${last?.saverPrice != null ? String(last.saverPrice).replace(".", ",") : ""}" placeholder="z. B. 39,99">
+          </label>
+          <label class="field load-field">
+            <span>Auslastung</span>
+            <select data-entry-load="${route.id}">
+              <option value="">–</option>
+              ${["gering","mittel","hoch","sehr hoch","ausgebucht"].map(v => `<option ${last?.load === v ? "selected" : ""}>${v}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+
+        <div class="monitor-last">
+          <span>Letzte Änderung: <strong>${lastText}</strong></span>
+          <span data-dirty-label="${route.id}"></span>
+        </div>
+      </article>`;
+  }).join("");
+
+  container.querySelectorAll("[data-db-route-id]").forEach(button => {
+    button.addEventListener("click", () => {
+      const route = project.routes.find(r => r.id === button.dataset.dbRouteId);
+      if (!route) return;
+      if (!route.time) {
+        alert("Bitte zuerst eine Abfahrtszeit eintragen.");
+        return;
+      }
+      localStorage.setItem("bahnpreis_tracker_pending_route", JSON.stringify({
+        projectId: project.id,
+        routeId: route.id,
+        openedAt: new Date().toISOString()
+      }));
+      renderRoutes();
+      window.open(buildDbUrl(project, route), "_blank", "noopener,noreferrer");
+    });
+  });
+
+  container.querySelectorAll("[data-shot-route-id]").forEach(button => {
+    button.addEventListener("click", () => {
+      const route = project.routes.find(r => r.id === button.dataset.shotRouteId);
+      if (!route) return;
+      localStorage.setItem("bahnpreis_tracker_pending_route", JSON.stringify({
+        projectId: project.id,
+        routeId: route.id,
+        openedAt: new Date().toISOString()
+      }));
+      currentOcrRoute = { project, route, pending: { projectId: project.id, routeId: route.id } };
+      $("screenshotFileInput").click();
+    });
+  });
+
+  container.querySelectorAll("input,select").forEach(control => {
+    const mark = () => {
+      control.classList.add("changed");
+      const id = control.dataset.entrySuper || control.dataset.entrySaver || control.dataset.entryLoad;
+      const label = document.querySelector(`[data-dirty-label="${id}"]`);
+      if (label) label.textContent = "Noch nicht gespeichert";
+    };
+    control.addEventListener("input", mark);
+    control.addEventListener("change", mark);
+  });
 }
 
 function buildDbUrl(project, route) {
@@ -215,25 +279,6 @@ function buildDbUrl(project, route) {
   return `https://www.bahn.de/buchung/fahrplan/suche#${params.toString()}`;
 }
 
-$("routesContainer").addEventListener("click", event => {
-  const button = event.target.closest("[data-db-route]");
-  if (!button) return;
-  const project = activeProject();
-  const route = project?.routes[Number(button.dataset.dbRoute)];
-  if (!project || !route) return;
-  if (!route.time) {
-    alert("Bitte die Verbindung im Projekt bearbeiten und eine Abfahrtszeit eintragen.");
-    return;
-  }
-  localStorage.setItem("bahnpreis_tracker_pending_route", JSON.stringify({
-    projectId: project.id,
-    routeId: route.id,
-    openedAt: new Date().toISOString()
-  }));
-  renderScreenshotPanel();
-  window.open(buildDbUrl(project, route), "_blank", "noopener,noreferrer");
-});
-
 $("saveObservationBtn").addEventListener("click", () => {
   const project = activeProject();
   if (!project) {
@@ -246,16 +291,16 @@ $("saveObservationBtn").addEventListener("click", () => {
   const added = [];
 
   for (const route of project.routes) {
-    const superInput = document.querySelector(`[data-entry-super="${route.id}"]`);
-    const saverInput = document.querySelector(`[data-entry-saver="${route.id}"]`);
-    const loadInput = document.querySelector(`[data-entry-load="${route.id}"]`);
+    const card = document.querySelector(`[data-monitor-card="${route.id}"]`);
+    if (!card || !card.querySelector(".changed")) continue;
 
-    const superPrice = parsePrice(superInput?.value);
-    const saverPrice = parsePrice(saverInput?.value);
-    const availablePrices = [superPrice, saverPrice].filter(v => v !== null);
-    const cheapestPrice = availablePrices.length ? Math.min(...availablePrices) : null;
+    const superPrice = parsePrice(card.querySelector(`[data-entry-super="${route.id}"]`)?.value);
+    const saverPrice = parsePrice(card.querySelector(`[data-entry-saver="${route.id}"]`)?.value);
+    const load = card.querySelector(`[data-entry-load="${route.id}"]`)?.value || "";
+    const prices = [superPrice, saverPrice].filter(v => v !== null);
+    const price = prices.length ? Math.min(...prices) : null;
 
-    if (availablePrices.length || loadInput?.value) {
+    if (prices.length || load) {
       added.push({
         id: uid(),
         queriedAt,
@@ -268,32 +313,25 @@ $("saveObservationBtn").addEventListener("click", () => {
         train: route.train,
         superPrice,
         saverPrice,
-        price: cheapestPrice,
-        fareType: cheapestPrice === superPrice ? "Super Sparpreis" :
-                  cheapestPrice === saverPrice ? "Sparpreis" :
-                  ""
-        load: loadInput?.value || "",
+        price,
+        fareType: price === superPrice ? "Super Sparpreis" : price === saverPrice ? "Sparpreis" : "",
+        load,
         note
       });
     }
   }
 
   if (!added.length) {
-    alert("Bitte mindestens einen Preis eintragen.");
+    alert("Es wurden keine geänderten Verbindungen gefunden.");
     return;
   }
 
   project.observations.push(...added);
   project.updatedAt = new Date().toISOString();
   saveState();
-
-  document.querySelectorAll("[data-entry-super]").forEach(el => el.value = "");
-  document.querySelectorAll("[data-entry-saver]").forEach(el => el.value = "");
-  document.querySelectorAll("[data-entry-load]").forEach(el => el.value = "");
   $("batchNote").value = "";
-
   renderAll();
-  showToast(`${added.length} Preise gespeichert`);
+  showToast(`${added.length} Verbindung${added.length === 1 ? "" : "en"} gespeichert`);
 });
 
 function renderAnalysisSelector() {
@@ -822,7 +860,7 @@ function getPendingScreenshotRoute() {
 function renderScreenshotPanel() {
   const panel = $("screenshotImportPanel");
   if (!panel) return;
-  const item = getPendingScreenshotRoute();
+  const item = currentOcrRoute || getPendingScreenshotRoute();
   if (!item || item.project.id !== state.activeProjectId) {
     panel.hidden = true;
     return;
@@ -833,7 +871,7 @@ function renderScreenshotPanel() {
 }
 
 $("chooseScreenshotBtn")?.addEventListener("click", () => {
-  const item = getPendingScreenshotRoute();
+  const item = currentOcrRoute || getPendingScreenshotRoute();
   if (!item) {
     alert("Bitte zuerst bei einer Verbindung auf „Bei DB suchen“ tippen.");
     return;
@@ -846,7 +884,7 @@ $("screenshotFileInput")?.addEventListener("change", async event => {
   event.target.value = "";
   if (!file) return;
 
-  const item = getPendingScreenshotRoute();
+  const item = currentOcrRoute || getPendingScreenshotRoute();
   if (!item) {
     alert("Die zuletzt geöffnete Verbindung konnte nicht mehr ermittelt werden.");
     return;
@@ -1022,6 +1060,10 @@ $("applyOcrBtn")?.addEventListener("click", () => {
 
   superInput.value = $("ocrSuperPrice").value.trim();
   saverInput.value = $("ocrSaverPrice").value.trim();
+  superInput.classList.add("changed");
+  saverInput.classList.add("changed");
+  const dirty = document.querySelector(`[data-dirty-label="${routeId}"]`);
+  if (dirty) dirty.textContent = "Screenshot übernommen – noch nicht gespeichert";
   superInput.scrollIntoView({ behavior: "smooth", block: "center" });
   superInput.focus();
   $("screenshotDialog").close();
@@ -1035,9 +1077,9 @@ $("closeScreenshotDialogBtn")?.addEventListener("click", closeOcrDialog);
 $("cancelOcrBtn")?.addEventListener("click", closeOcrDialog);
 
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) renderScreenshotPanel();
+  if (!document.hidden) renderRoutes();
 });
-window.addEventListener("focus", renderScreenshotPanel);
+window.addEventListener("focus", renderRoutes);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));

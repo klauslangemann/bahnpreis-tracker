@@ -92,3 +92,29 @@ Hinweis: Die DB-Seite öffnet die Suche zur gespeicherten Abfahrtszeit. Eine
 bestimmte Zugnummer lässt sich über einen stabilen öffentlichen DB-Link nicht
 zuverlässig direkt auswählen. Die gewünschte Verbindung sollte jedoch in der
 Trefferliste an der passenden Uhrzeit erscheinen.
+
+
+# Version 6 – DB-Monitor
+
+Jede Verbindung besitzt nun eine eigene kompakte Monitor-Karte mit:
+
+- direktem DB-Link
+- direktem Screenshot-Import
+- Super Sparpreis
+- Sparpreis
+- Auslastung
+- letzter gespeicherter Änderung
+
+Nur geänderte Karten werden als neue Beobachtung gespeichert. Bestehende JSON-
+Backups aus Version 5 können weiterhin wiederhergestellt werden.
+
+## Aktualisierung
+
+1. In der bisherigen App ein JSON-Backup herunterladen.
+2. Diese ZIP entpacken.
+3. Alle enthaltenen Dateien bei GitHub in das Repository `bahnpreis-tracker`
+   hochladen und die vorhandenen Dateien ersetzen.
+4. `Commit changes` ausführen.
+5. Ein bis zwei Minuten warten und die Webseite in Safari neu laden.
+6. Zeigt die Home-Bildschirm-App noch die alte Version, diese Verknüpfung löschen
+   und die Webseite erneut über „Zum Home-Bildschirm“ hinzufügen.

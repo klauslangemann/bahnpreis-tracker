@@ -1,6 +1,6 @@
 {
-  "name": "Bahnpreis-Tracker",
-  "short_name": "Bahnpreise",
+  "name": "Bahnpreis-Tracker Version 6",
+  "short_name": "Bahnmonitor",
   "description": "Manuelle Bahnpreisstudien nach Reisedatum",
   "start_url": "./",
   "scope": "./",
