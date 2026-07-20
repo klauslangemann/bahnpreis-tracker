@@ -21,7 +21,7 @@ header {
 h1 { font-size: 1.35rem; margin: 0; }
 h2 { font-size: 1.1rem; margin: 0 0 4px; }
 p { margin: 4px 0; color: #6b7280; }
-main { max-width: 1050px; margin: auto; padding: 16px; }
+main { max-width: 1100px; margin: auto; padding: 16px; }
 .card, .notice {
   background: white;
   border-radius: 14px;
@@ -34,16 +34,14 @@ main { max-width: 1050px; margin: auto; padding: 16px; }
   border: 1px solid #fed7aa;
   color: #9a3412;
 }
-.route-title { font-weight: 700; margin-bottom: 12px; }
 .grid { display: grid; gap: 12px; }
 .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 label { display: grid; gap: 6px; font-size: .9rem; font-weight: 600; }
 input, select, textarea {
   width: 100%;
   border: 1px solid #d1d5db;
   border-radius: 10px;
-  padding: 12px;
+  padding: 11px;
   font: inherit;
   background: white;
 }
@@ -72,10 +70,13 @@ button, .file-button {
 .section-head { justify-content: space-between; margin-bottom: 12px; }
 .button-row { flex-wrap: wrap; justify-content: flex-end; }
 .file-button input { display: none; }
-.table-wrap { overflow-x: auto; }
+.table-wrap, .entry-table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 th, td { border-bottom: 1px solid #e5e7eb; padding: 10px 8px; text-align: left; white-space: nowrap; }
 td.route-cell, td.note-cell { white-space: normal; min-width: 220px; }
+.entry-table th:first-child, .entry-table td:first-child { min-width: 260px; }
+.entry-table input { min-width: 88px; }
+.entry-table select { min-width: 120px; }
 .icon-button { padding: 7px 9px; }
 dialog {
   width: min(560px, calc(100% - 28px));
@@ -97,6 +98,7 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
   padding: 14px;
 }
 .stat strong { display: block; font-size: 1.25rem; }
+canvas { width: 100%; max-width: 100%; }
 #toast {
   position: fixed;
   left: 50%;
@@ -115,13 +117,14 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 @media (max-width: 720px) {
   header { align-items: flex-start; }
   header p { display: none; }
-  .grid.two, .grid.four { grid-template-columns: 1fr 1fr; }
+  .grid.two { grid-template-columns: 1fr 1fr; }
   .section-head { align-items: flex-start; flex-direction: column; }
   .button-row { justify-content: flex-start; }
   .stats { grid-template-columns: 1fr; }
 }
 @media (max-width: 460px) {
-  .grid.two, .grid.four { grid-template-columns: 1fr; }
+  .grid.two { grid-template-columns: 1fr; }
   .actions { flex-direction: column; }
   .actions button { width: 100%; }
+  .entry-table th, .entry-table td { padding: 8px 6px; }
 }

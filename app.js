@@ -3,12 +3,12 @@ const DEFAULT_ROUTES = [
   "Kassel-Wilhelmshöhe → Hamburg Hbf, 08:23",
   "Kassel-Wilhelmshöhe → Berlin Hbf, 09:26",
   "Kassel-Wilhelmshöhe → München Hbf, 10:18",
-  "Kassel-Wilhelmshöhe → Frankfurt (Main) Hbf, 08:37",
-  "Kassel-Wilhelmshöhe → Köln Hbf, 09:14"
+  "Kassel-Wilhelmshöhe → Frankfurt (M) Flughafen Fernbf, 08:37",
+  "Kassel-Wilhelmshöhe → Hannover Hbf, 09:14"
 ];
 
-const STORAGE_RECORDS = "bahnpreis_records_v2";
-const STORAGE_ROUTES = "bahnpreis_routes_v2";
+const STORAGE_RECORDS = "bahnpreis_records_v3";
+const STORAGE_ROUTES = "bahnpreis_routes_v3";
 
 const routesContainer = document.getElementById("routes");
 const recordsBody = document.getElementById("recordsBody");
@@ -20,6 +20,9 @@ const toast = document.getElementById("toast");
 const settingsDialog = document.getElementById("settingsDialog");
 const routesText = document.getElementById("routesText");
 const stats = document.getElementById("stats");
+const chartRoute = document.getElementById("chartRoute");
+const canvas = document.getElementById("priceChart");
+const ctx = canvas.getContext("2d");
 
 let routes = loadRoutes();
 let records = loadRecords();
@@ -62,34 +65,26 @@ function showToast(message) {
 function renderRoutes() {
   routesContainer.innerHTML = "";
   routes.forEach((route, index) => {
-    const section = document.createElement("section");
-    section.className = "card";
-    section.innerHTML = `
-      <div class="route-title">${escapeHtml(route)}</div>
-      <div class="grid four">
-        <label>Super Sparpreis (€)
-          <input inputmode="decimal" data-field="super" data-index="${index}" placeholder="z. B. 29,99">
-        </label>
-        <label>Sparpreis (€)
-          <input inputmode="decimal" data-field="spar" data-index="${index}" placeholder="z. B. 39,99">
-        </label>
-        <label>Flexpreis (€)
-          <input inputmode="decimal" data-field="flex" data-index="${index}" placeholder="z. B. 112,00">
-        </label>
-        <label>Auslastung
-          <select data-field="load" data-index="${index}">
-            <option value="">–</option>
-            <option>gering</option>
-            <option>mittel</option>
-            <option>hoch</option>
-            <option>sehr hoch</option>
-            <option>ausgebucht</option>
-          </select>
-        </label>
-      </div>
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${escapeHtml(route)}</td>
+      <td><input inputmode="decimal" data-field="super" data-index="${index}" placeholder="29,99"></td>
+      <td><input inputmode="decimal" data-field="spar" data-index="${index}" placeholder="39,99"></td>
+      <td><input inputmode="decimal" data-field="flex" data-index="${index}" placeholder="112,00"></td>
+      <td>
+        <select data-field="load" data-index="${index}">
+          <option value="">–</option>
+          <option>gering</option>
+          <option>mittel</option>
+          <option>hoch</option>
+          <option>sehr hoch</option>
+          <option>ausgebucht</option>
+        </select>
+      </td>
     `;
-    routesContainer.appendChild(section);
+    routesContainer.appendChild(row);
   });
+  renderChartOptions();
 }
 
 function parsePrice(value) {
@@ -140,6 +135,90 @@ function renderRecords() {
   }
   recordCount.textContent = `${records.length} Datensatz${records.length === 1 ? "" : "sätze"}`;
   renderStats();
+  drawChart();
+}
+
+function renderChartOptions() {
+  const selected = chartRoute.value;
+  chartRoute.innerHTML = routes.map(r => `<option value="${escapeHtml(r)}">${escapeHtml(r)}</option>`).join("");
+  if (routes.includes(selected)) chartRoute.value = selected;
+}
+
+function cheapest(record) {
+  const values = [record.super, record.spar, record.flex]
+    .filter(v => v !== "" && v != null)
+    .map(Number)
+    .filter(Number.isFinite);
+  return values.length ? Math.min(...values) : null;
+}
+
+function drawChart() {
+  const route = chartRoute.value || routes[0];
+  const data = records
+    .filter(r => r.route === route)
+    .map(r => ({x: new Date(r.queryTime), y: cheapest(r)}))
+    .filter(p => p.y !== null)
+    .sort((a,b) => a.x - b.x);
+
+  const ratio = window.devicePixelRatio || 1;
+  const width = canvas.clientWidth || 800;
+  const height = 250;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  if (data.length < 2) {
+    ctx.font = "14px system-ui";
+    ctx.fillStyle = "#6b7280";
+    ctx.fillText("Für diese Verbindung liegen noch nicht genug Daten vor.", 20, 40);
+    return;
+  }
+
+  const pad = {l: 48, r: 18, t: 18, b: 36};
+  const ys = data.map(d => d.y);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const rangeY = Math.max(1, maxY - minY);
+  const minX = data[0].x.getTime();
+  const maxX = data[data.length - 1].x.getTime();
+  const rangeX = Math.max(1, maxX - minX);
+
+  ctx.strokeStyle = "#d1d5db";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, height-pad.b);
+  ctx.lineTo(width-pad.r, height-pad.b);
+  ctx.stroke();
+
+  ctx.font = "12px system-ui";
+  ctx.fillStyle = "#6b7280";
+  ctx.fillText(`${maxY.toFixed(0)} €`, 6, pad.t + 4);
+  ctx.fillText(`${minY.toFixed(0)} €`, 6, height - pad.b + 4);
+  ctx.fillText(data[0].x.toLocaleDateString("de-DE"), pad.l, height - 12);
+  const lastLabel = data[data.length - 1].x.toLocaleDateString("de-DE");
+  ctx.fillText(lastLabel, width - pad.r - 70, height - 12);
+
+  ctx.strokeStyle = "#111827";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  data.forEach((d, i) => {
+    const x = pad.l + ((d.x.getTime() - minX) / rangeX) * (width - pad.l - pad.r);
+    const y = pad.t + (1 - ((d.y - minY) / rangeY)) * (height - pad.t - pad.b);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  ctx.fillStyle = "#111827";
+  data.forEach(d => {
+    const x = pad.l + ((d.x.getTime() - minX) / rangeX) * (width - pad.l - pad.r);
+    const y = pad.t + (1 - ((d.y - minY) / rangeY)) * (height - pad.t - pad.b);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
 }
 
 document.getElementById("entryForm").addEventListener("submit", event => {
@@ -218,6 +297,7 @@ document.getElementById("saveRoutesBtn").addEventListener("click", event => {
   routes = newRoutes;
   localStorage.setItem(STORAGE_ROUTES, JSON.stringify(routes));
   renderRoutes();
+  drawChart();
   showToast("Verbindungen gespeichert");
 });
 
@@ -289,6 +369,9 @@ document.getElementById("importInput").addEventListener("change", async event =>
   event.target.value = "";
   showToast(`${imported.length} Datensätze importiert`);
 });
+
+chartRoute.addEventListener("change", drawChart);
+window.addEventListener("resize", drawChart);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));

@@ -16,15 +16,14 @@
   <header>
     <div>
       <h1>Bahnpreis-Tracker</h1>
-      <p>Manuelle Preisbeobachtung für mehrere Verbindungen.</p>
+      <p>Manuelle Preisbeobachtung für mehrere Verbindungen</p>
     </div>
     <button id="settingsBtn" class="secondary">Verbindungen</button>
   </header>
 
   <main>
     <section class="notice">
-      <strong>Datensicherung:</strong>
-      Die Daten liegen lokal auf diesem Gerät. Exportiere mindestens einmal pro Woche eine CSV-Datei.
+      <strong>Hinweis:</strong> Daten werden lokal auf diesem Gerät gespeichert. Bitte regelmäßig CSV sichern.
     </section>
 
     <section class="card">
@@ -40,12 +39,28 @@
       </div>
       <label class="top-gap">
         Bemerkung zur Abfrage
-        <input id="batchNote" type="text" placeholder="z. B. Ferienbeginn, sehr hohe Nachfrage">
+        <input id="batchNote" type="text" placeholder="z. B. Ferienbeginn oder besonders hohe Nachfrage">
       </label>
     </section>
 
     <form id="entryForm">
-      <div id="routes"></div>
+      <section class="card">
+        <div class="entry-table-wrap">
+          <table class="entry-table">
+            <thead>
+              <tr>
+                <th>Verbindung</th>
+                <th>Super</th>
+                <th>Spar</th>
+                <th>Flex</th>
+                <th>Auslastung</th>
+              </tr>
+            </thead>
+            <tbody id="routes"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="card actions">
         <button type="submit" class="primary">Abfrage speichern</button>
         <button type="button" id="clearInputsBtn" class="secondary">Eingaben leeren</button>
@@ -54,6 +69,17 @@
 
     <section class="card">
       <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Preisverlauf</h2>
+          <p>Günstigster beobachteter Preis je Abfrage</p>
+        </div>
+        <select id="chartRoute"></select>
+      </div>
+      <canvas id="priceChart" height="250"></canvas>
     </section>
 
     <section class="card">
@@ -95,7 +121,7 @@
   <dialog id="settingsDialog">
     <form method="dialog" id="settingsForm">
       <h2>Verbindungen bearbeiten</h2>
-      <p>Eine Verbindung pro Zeile, zum Beispiel: Kassel-Wilhelmshöhe → Hamburg Hbf, 08:23</p>
+      <p>Eine Verbindung pro Zeile.</p>
       <textarea id="routesText" rows="10"></textarea>
       <div class="dialog-actions">
         <button value="cancel" class="secondary">Abbrechen</button>
