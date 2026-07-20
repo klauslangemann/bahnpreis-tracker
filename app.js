@@ -1,4 +1,4 @@
-const VERSION = "8.6";
+const VERSION = "8.7";
 const DATA_KEY = "bahnpreis_tracker_v8_data";
 const DRAFT_KEY = "bahnpreis_tracker_v8_drafts";
 const OLD_KEYS = ["bahnpreis_tracker_v5_state", "bahnpreis_tracker_state"];
@@ -261,35 +261,7 @@ $("screenshotInput").onchange=async e=>{
   e.target.value="";
 };
 
-$("bulkScreenshotBtn").onclick=()=>{
-  $("globalStatus").textContent="Bitte die Screenshots in Karten-Reihenfolge auswählen: Hamburg, Berlin, München, Frankfurt, Hannover.";
-  $("bulkScreenshotInput").click();
-};
-$("bulkScreenshotInput").onchange=async e=>{
-  const files=[...e.target.files];
-  if(!files.length)return;
 
-  const p=activeProject();
-  const routes=p.routes.slice();
-  const count=Math.min(files.length,routes.length);
-  let recognized=0;
-
-  for(let i=0;i<count;i++){
-    const route=routes[i];
-    $("globalStatus").textContent=`${route.destination}: Screenshot ${i+1} von ${count} wird gelesen …`;
-    try{
-      const result=await Tesseract.recognize(files[i],"deu");
-      const data=extractScreenshotData(result.data.text);
-      if(applyScreenshotData(p,route,data))recognized++;
-    }catch{
-      // Die übrigen Screenshots werden trotzdem weiter verarbeitet.
-    }
-  }
-
-  $("globalStatus").textContent=
-    `${recognized} von ${count} Screenshots eingelesen. Zuordnung erfolgte nach Auswahlreihenfolge.`;
-  e.target.value="";
-};
 
 function showHistory(p,r){
   const rows=(p.observations||[]).filter(o=>o.routeId===r.id).sort((a,b)=>observationTime(a.queriedAt)-observationTime(b.queriedAt));

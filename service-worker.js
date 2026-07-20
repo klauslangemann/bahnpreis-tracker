@@ -1,4 +1,4 @@
-const CACHE="bahnpreis-tracker-v8-6";
+const CACHE="bahnpreis-tracker-v8-7";
 const STATIC=["manifest.json","initial-data.json"];
 self.addEventListener("install",e=>e.waitUntil(
   caches.open(CACHE).then(c=>c.addAll(STATIC)).then(()=>self.skipWaiting())
