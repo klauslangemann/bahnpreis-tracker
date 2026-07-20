@@ -153,3 +153,26 @@ canvas { width: 100%; max-width: 100%; }
   .actions { flex-direction: column; }
   .actions button { width: 100%; }
 }
+
+.db-search-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #ec0016;
+  color: white;
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.db-search-button:active { transform: translateY(1px); }
+.route-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 11px;
+}
+@media (max-width: 620px) {
+  .db-search-button { width: 100%; }
+}

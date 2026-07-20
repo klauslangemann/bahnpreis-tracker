@@ -68,6 +68,33 @@ function formatPrice(value) {
   return Number(value).toLocaleString("de-DE", {minimumFractionDigits:2, maximumFractionDigits:2}) + " €";
 }
 
+
+function buildDbSearchUrl(route) {
+  const selectedDate = travelDate.value;
+  const selectedTime = route.time || "08:00";
+  const departure = selectedDate
+    ? `${selectedDate}T${selectedTime}:00`
+    : "";
+
+  const params = new URLSearchParams();
+  params.set("SO", "Kassel-Wilhelmshöhe");
+  params.set("ZO", route.name);
+  if (departure) params.set("HD", departure);
+  params.set("D", "true");
+
+  return `https://www.bahn.de/buchung/start#?${params.toString()}`;
+}
+
+function openDbSearch(route) {
+  if (!travelDate.value) {
+    alert("Bitte zuerst das Reisedatum auswählen.");
+    travelDate.focus();
+    return;
+  }
+  const url = buildDbSearchUrl(route);
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 function renderRoutes() {
   routesContainer.innerHTML = "";
   routes.forEach((route, index) => {
@@ -101,6 +128,11 @@ function renderRoutes() {
             <option>ausgebucht</option>
           </select>
         </label>
+      </div>
+      <div class="route-actions">
+        <button class="db-search-button" type="button" data-db-index="${index}">
+          Bei DB suchen
+        </button>
       </div>
     `;
     routesContainer.appendChild(card);
@@ -242,7 +274,17 @@ function clearInputs() {
   document.querySelectorAll("[data-field]").forEach(el => el.value = "");
   batchNote.value = "";
 }
+
 $("clearInputsBtn").addEventListener("click", clearInputs);
+
+routesContainer.addEventListener("click", event => {
+  const button = event.target.closest("[data-db-index]");
+  if (!button) return;
+  const index = Number(button.dataset.dbIndex);
+  const route = routes[index];
+  if (route) openDbSearch(route);
+});
+
 
 recordsBody.addEventListener("click", event => {
   const id = event.target.dataset.delete;

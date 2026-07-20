@@ -1,4 +1,4 @@
-# Version 4 auf GitHub aktualisieren
+# Version 4.1 auf GitHub aktualisieren
 
 1. ZIP-Datei entpacken.
 2. Im Repository `bahnpreis-tracker` auf **Add file** → **Upload files**.
@@ -23,3 +23,18 @@ Die Erinnerung erscheint dann täglich zu den gewählten Zeiten.
 Eine GitHub-Pages-App kann keine zeitgesteuerten Push-Nachrichten versenden, wenn sie geschlossen ist.
 Dafür wäre zusätzlich ein Push-Server nötig.
 Die Kalenderlösung funktioniert ohne zusätzlichen Server und ist auf dem iPhone zuverlässig.
+
+
+## DB-Suchbutton
+
+Bei jeder Verbindung gibt es jetzt **Bei DB suchen**.
+
+Der Button übernimmt:
+- Kassel-Wilhelmshöhe als Start,
+- das jeweilige Ziel,
+- das oben gewählte Reisedatum,
+- die bei der Verbindung hinterlegte Uhrzeit.
+
+Bitte vor dem Antippen immer zuerst das Reisedatum auswählen.
+
+Hinweis: Die DB kann die Struktur ihrer Buchungslinks ändern. Falls die Felder später nicht mehr vollständig vorausgefüllt werden, muss nur die Linkfunktion in `app.js` angepasst werden.
