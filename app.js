@@ -300,7 +300,13 @@ function renderRoutes() {
         routeId: route.id,
         openedAt: new Date().toISOString()
       }));
-      window.open(buildDbUrl(project, route), "_blank", "noopener,noreferrer");
+
+      try {
+        const dbUrl = buildDbUrl(project, route);
+        window.open(dbUrl, "_blank", "noopener,noreferrer");
+      } catch (error) {
+        alert(error.message || "Der DB-Link konnte nicht erstellt werden.");
+      }
     });
   });
 
@@ -360,26 +366,44 @@ function buildDbUrl(project, route) {
   const date = String(project.travelDate || "").trim();
   const time = String(route.time || "").trim();
 
-  const params = new URLSearchParams();
-  params.set("sts", "true");
-  params.set("so", origin);
-  params.set("zo", destination);
-  params.set("sot", "ST");
-  params.set("zot", "ST");
-
-  if (date && time) {
-    params.set("hd", `${date}T${time}:00`);
+  if (!date || !time) {
+    throw new Error("Reisedatum oder Abfahrtszeit fehlt.");
   }
 
-  params.set("hza", "D");
-  params.set("ar", "false");
-  params.set("s", "true");
-  params.set("d", "false");
-  params.set("hz", "[]");
-  params.set("fm", "false");
-  params.set("bp", "false");
+  // DB expects the requested departure as an ISO-like local timestamp
+  // inside the URL fragment, for example 2026-09-21T08:37:00.
+  const departure = `${date}T${time}:00`;
 
-  return `https://www.bahn.de/buchung/fahrplan/suche#${params.toString()}`;
+  const values = [
+    ["sts", "true"],
+    ["so", origin],
+    ["zo", destination],
+    ["kl", "2"],
+    ["sot", "ST"],
+    ["zot", "ST"],
+    ["hd", departure],
+    ["hza", "D"],
+    ["ar", "false"],
+    ["s", "true"],
+    ["d", "false"],
+    ["hz", "[]"],
+    ["fm", "false"],
+    ["bp", "false"]
+  ];
+
+  // Encode individual values, while keeping the DB timestamp separators
+  // readable. This avoids the date being discarded by the DB page.
+  const fragment = values.map(([key, value]) => {
+    let encoded = encodeURIComponent(value);
+    if (key === "hd") {
+      encoded = encoded
+        .replace(/%3A/gi, ":")
+        .replace(/%2D/gi, "-");
+    }
+    return `${key}=${encoded}`;
+  }).join("&");
+
+  return `https://www.bahn.de/buchung/fahrplan/suche#${fragment}`;
 }
 
 $("saveObservationBtn").addEventListener("click", () => {

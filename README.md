@@ -138,3 +138,18 @@ Neu:
 
 Bestehende Projekte, Verbindungen, Beobachtungen und JSON-Backups aus Version 5
 und Version 6 bleiben kompatibel.
+
+
+# Version 7.1 – Reisedatum im DB-Link
+
+Der DB-Link übergibt das im Projekt gespeicherte Reisedatum und die jeweilige
+Abfahrtszeit nun ausdrücklich im von der DB-Suche verwendeten Format:
+
+`YYYY-MM-DDTHH:MM:SS`
+
+Beispiel für das aktuelle Projekt:
+
+`2026-09-21T08:37:00`
+
+Dadurch soll die DB-Seite nicht mehr auf das heutige Datum zurückfallen.
+Die automatische Entwurfssicherung aus Version 7 bleibt unverändert erhalten.
