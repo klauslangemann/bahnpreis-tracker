@@ -1,4 +1,4 @@
-const VERSION = "8.0";
+const VERSION = "8.1";
 const DATA_KEY = "bahnpreis_tracker_v8_data";
 const DRAFT_KEY = "bahnpreis_tracker_v8_drafts";
 const OLD_KEYS = ["bahnpreis_tracker_v5_state", "bahnpreis_tracker_state"];
@@ -76,6 +76,9 @@ function routeHtml(p,r){
   const s=d?d.superPrice:(last?.superPrice??"");
   const sp=d?d.saverPrice:(last?.saverPrice??"");
   const load=d?d.load:(last?.load??"");
+  const shownAt=d?.updatedAt||last?.queriedAt||null;
+  const shownSuper=d?parsePrice(d.superPrice):last?.superPrice;
+  const shownSaver=d?parsePrice(d.saverPrice):last?.saverPrice;
   return `<article class="route-card" data-card="${r.id}">
     <div class="route-head">
       <div class="route-title"><span class="code">${escapeHtml(r.code)}</span><h2>${escapeHtml(p.origin)} → ${escapeHtml(r.destination)}</h2><div class="route-meta">${escapeHtml(r.train)} · ${escapeHtml(r.time)} Uhr</div></div>
@@ -86,7 +89,7 @@ function routeHtml(p,r){
       <label class="field"><span>Sparpreis</span><input inputmode="decimal" data-saver="${r.id}" value="${escapeHtml(String(sp).replace(".",","))}" placeholder="39,99"></label>
       <label class="field load"><span>Auslastung</span><select data-load="${r.id}"><option value="">–</option>${["gering","mittel","hoch","sehr hoch","ausgebucht"].map(v=>`<option ${load===v?"selected":""}>${v}</option>`).join("")}</select></label>
     </div>
-    <div class="route-foot"><span>Letzte Abfrage: ${last?`${dateTimeDE(last.queriedAt)} · ${euro(last.superPrice)} / ${euro(last.saverPrice)}`:"noch keine"}</span><span class="saved" data-status="${r.id}">${d?"✓ Entwurf gespeichert":""}</span></div>
+    <div class="route-foot"><span data-last="${r.id}">Letzte Abfrage: ${shownAt?`${dateTimeDE(shownAt)} · ${euro(shownSuper)} / ${euro(shownSaver)}`:"noch keine"}</span><span class="saved" data-status="${r.id}">${d?"✓ automatisch gespeichert":""}</span></div>
   </article>`
 }
 
@@ -106,8 +109,17 @@ function bindCards(p){
 }
 function saveVisibleDraft(p,id){
   const c=document.querySelector(`[data-card="${id}"]`);if(!c)return;
-  setDraft(p.id,id,{superPrice:c.querySelector(`[data-super="${id}"]`).value,saverPrice:c.querySelector(`[data-saver="${id}"]`).value,load:c.querySelector(`[data-load="${id}"]`).value});
-  const s=document.querySelector(`[data-status="${id}"]`);if(s)s.textContent="✓ automatisch gespeichert";
+  const value={
+    superPrice:c.querySelector(`[data-super="${id}"]`).value,
+    saverPrice:c.querySelector(`[data-saver="${id}"]`).value,
+    load:c.querySelector(`[data-load="${id}"]`).value
+  };
+  setDraft(p.id,id,value);
+  const d=getDraft(p.id,id);
+  const s=document.querySelector(`[data-status="${id}"]`);
+  if(s)s.textContent="✓ automatisch gespeichert";
+  const last=document.querySelector(`[data-last="${id}"]`);
+  if(last)last.textContent=`Letzte Abfrage: ${dateTimeDE(d.updatedAt)} · ${euro(parsePrice(value.superPrice))} / ${euro(parsePrice(value.saverPrice))}`;
 }
 
 $("projectSelect").onchange=e=>{state.activeProjectId=e.target.value;saveState();render()};

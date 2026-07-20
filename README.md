@@ -1,17 +1,9 @@
-# Bahnpreis-Tracker V8.0
+# Bahnpreis-Tracker V8.1
 
-Neuaufbau mit sichtbarer Versionsnummer, automatischer Entwurfssicherung,
-Preisverlauf, Screenshot-OCR sowie Backup und Wiederherstellung.
+Änderung gegenüber V8.0:
 
-Die mitgelieferte Ausgangsdatei enthält das am 20.07.2026 exportierte Projekt
-mit fünf Verbindungen. Vorhandene Browserdaten aus älteren Versionen werden
-automatisch übernommen, sofern sie noch gespeichert sind.
-
-## Aktualisierung
-
-1. ZIP entpacken.
-2. Im GitHub-Repository `bahnpreis-tracker` alle vorhandenen Dateien löschen.
-3. Alle Dateien aus diesem Ordner hochladen.
-4. `Commit changes` wählen.
-5. GitHub Pages nach etwa zwei Minuten direkt in Safari öffnen.
-6. Oben rechts muss `V8.0` stehen.
+- Nach dem Einlesen eines Screenshots wird die Anzeige **„Letzte Abfrage“**
+  auf der jeweiligen Karte sofort auf den aktuellen Zeitpunkt und die
+  erkannten Preise aktualisiert.
+- Dasselbe gilt bei manuellen Preisänderungen.
+- Die Daten bleiben wie bisher automatisch lokal gespeichert.
