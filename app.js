@@ -1,4 +1,4 @@
-const VERSION = "8.3";
+const VERSION = "8.6";
 const DATA_KEY = "bahnpreis_tracker_v8_data";
 const DRAFT_KEY = "bahnpreis_tracker_v8_drafts";
 const OLD_KEYS = ["bahnpreis_tracker_v5_state", "bahnpreis_tracker_state"];
@@ -80,6 +80,48 @@ function dbUrl(project,route){
   return `https://www.bahn.de/buchung/start#?${q.toString()}`;
 }
 
+function normalizedText(value){
+  return String(value||"")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/wilhelmshöhe/g,"wilhelmshohe")
+    .replace(/[^a-z0-9]+/g," ")
+    .replace(/\s+/g," ").trim();
+}
+function routeMatchScore(text,route){
+  const t=normalizedText(text);
+  let score=0;
+  const dest=normalizedText(route.destination);
+  const destinationWords=dest.split(" ").filter(w=>w.length>=4 && !["hauptbahnhof","flughafen","fernbf"].includes(w));
+  destinationWords.forEach(w=>{if(t.includes(w))score+=3});
+  const trainDigits=String(route.train||"").match(/\d+/)?.[0];
+  if(trainDigits && t.includes(trainDigits))score+=6;
+  const compactTime=String(route.time||"").replace(":","");
+  if(route.time && (t.includes(route.time)||t.includes(compactTime)))score+=4;
+  if(route.code && t.includes(String(route.code).toLowerCase()))score+=1;
+  return score;
+}
+function extractScreenshotData(text){
+  const flat=String(text||"").replace(/\n/g," ");
+  const prices=[];
+  for(const m of flat.matchAll(/(?:ab\s*)?(\d{1,3}[,.]\d{2})\s*€/gi)){
+    const p=m[1].replace(".",",");
+    if(!prices.includes(p))prices.push(p);
+  }
+  const low=flat.toLowerCase();
+  const load=["ausgebucht","sehr hoch","hoch","mittel","gering"].find(v=>low.includes(v))||"";
+  return {prices:prices.slice(0,2),load};
+}
+function applyScreenshotData(project,route,data){
+  const card=document.querySelector(`[data-card="${route.id}"]`);
+  if(!card)return false;
+  if(data.prices[0])card.querySelector(`[data-super="${route.id}"]`).value=data.prices[0];
+  if(data.prices[1])card.querySelector(`[data-saver="${route.id}"]`).value=data.prices[1];
+  if(data.load)card.querySelector(`[data-load="${route.id}"]`).value=data.load;
+  saveVisibleDraft(project,route.id);
+  return Boolean(data.prices.length||data.load);
+}
+
 function render(){
   const select=$("projectSelect");
   select.innerHTML=state.projects.map(p=>`<option value="${p.id}" ${p.id===state.activeProjectId?"selected":""}>${dateDE(p.travelDate)} · ${escapeHtml(p.origin)}</option>`).join("");
@@ -153,7 +195,6 @@ $("completeBtn").onclick=()=>{
   p.lastQueries=p.lastQueries||{};
 
   p.routes.forEach(r=>{
-    saveVisibleDraft(p,r.id);
     const d=getDraft(p.id,r.id);
     if(!d)return;
 
@@ -211,17 +252,42 @@ $("screenshotInput").onchange=async e=>{
   const {p,r}=currentShot;$("globalStatus").textContent="Screenshot wird gelesen …";
   try{
     const result=await Tesseract.recognize(file,"deu");
-    const text=result.data.text.replace(/\n/g," ");
-    const prices=[...text.matchAll(/(\d{1,3}[,.]\d{2})\s*€/g)].map(m=>m[1]);
-    const card=document.querySelector(`[data-card="${r.id}"]`);
-    if(prices[0])card.querySelector(`[data-super="${r.id}"]`).value=prices[0];
-    if(prices[1])card.querySelector(`[data-saver="${r.id}"]`).value=prices[1];
-    const low=text.toLowerCase();
-    const load=["ausgebucht","sehr hoch","hoch","mittel","gering"].find(v=>low.includes(v));
-    if(load)card.querySelector(`[data-load="${r.id}"]`).value=load;
-    saveVisibleDraft(p,r.id);
-    $("globalStatus").textContent=prices.length?`Screenshot erkannt: ${prices.slice(0,2).join(" / ")} €`:"Keine Preise sicher erkannt.";
+    const data=extractScreenshotData(result.data.text);
+    applyScreenshotData(p,r,data);
+    $("globalStatus").textContent=data.prices.length
+      ?`Screenshot erkannt: ${data.prices.join(" / ")} €`
+      :"Keine Preise sicher erkannt.";
   }catch{$("globalStatus").textContent="Screenshot konnte nicht gelesen werden."}
+  e.target.value="";
+};
+
+$("bulkScreenshotBtn").onclick=()=>{
+  $("globalStatus").textContent="Bitte die Screenshots in Karten-Reihenfolge auswählen: Hamburg, Berlin, München, Frankfurt, Hannover.";
+  $("bulkScreenshotInput").click();
+};
+$("bulkScreenshotInput").onchange=async e=>{
+  const files=[...e.target.files];
+  if(!files.length)return;
+
+  const p=activeProject();
+  const routes=p.routes.slice();
+  const count=Math.min(files.length,routes.length);
+  let recognized=0;
+
+  for(let i=0;i<count;i++){
+    const route=routes[i];
+    $("globalStatus").textContent=`${route.destination}: Screenshot ${i+1} von ${count} wird gelesen …`;
+    try{
+      const result=await Tesseract.recognize(files[i],"deu");
+      const data=extractScreenshotData(result.data.text);
+      if(applyScreenshotData(p,route,data))recognized++;
+    }catch{
+      // Die übrigen Screenshots werden trotzdem weiter verarbeitet.
+    }
+  }
+
+  $("globalStatus").textContent=
+    `${recognized} von ${count} Screenshots eingelesen. Zuordnung erfolgte nach Auswahlreihenfolge.`;
   e.target.value="";
 };
 
