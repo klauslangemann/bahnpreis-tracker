@@ -1,4 +1,4 @@
-const VERSION = "8.1";
+const VERSION = "8.2";
 const DATA_KEY = "bahnpreis_tracker_v8_data";
 const DRAFT_KEY = "bahnpreis_tracker_v8_drafts";
 const OLD_KEYS = ["bahnpreis_tracker_v5_state", "bahnpreis_tracker_state"];
@@ -13,6 +13,28 @@ function euro(v){return v==null||Number.isNaN(Number(v))?"–":new Intl.NumberFo
 function dateDE(v){if(!v)return"–";const [y,m,d]=v.split("-");return `${d}.${m}.${y}`}
 function dateTimeDE(v){if(!v)return"–";const d=new Date(v);return Number.isNaN(d.getTime())?v:new Intl.DateTimeFormat("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}).format(d)}
 function parsePrice(v){const s=String(v??"").replace(/\s/g,"").replace("€","").replace(",",".");if(!s)return null;const n=Number(s);return Number.isFinite(n)?n:null}
+
+function observationTime(value){
+  if(!value)return 0;
+  const direct=Date.parse(value);
+  if(Number.isFinite(direct))return direct;
+
+  const m=String(value).match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(!m)return 0;
+  return new Date(
+    Number(m[3]), Number(m[2])-1, Number(m[1]),
+    Number(m[4]||0), Number(m[5]||0), Number(m[6]||0)
+  ).getTime();
+}
+function newestObservation(project,routeId){
+  return (project.observations||[])
+    .filter(o=>o.routeId===routeId)
+    .reduce((latest,current)=>{
+      if(!latest)return current;
+      return observationTime(current.queriedAt)>=observationTime(latest.queriedAt)
+        ? current : latest;
+    },null);
+}
 
 async function loadState(){
   const current=localStorage.getItem(DATA_KEY);
@@ -70,8 +92,8 @@ function render(){
 }
 
 function routeHtml(p,r){
-  const obs=(p.observations||[]).filter(o=>o.routeId===r.id).sort((a,b)=>String(b.queriedAt).localeCompare(String(a.queriedAt)));
-  const last=obs[0];
+  const obs=(p.observations||[]).filter(o=>o.routeId===r.id).sort((a,b)=>observationTime(b.queriedAt)-observationTime(a.queriedAt));
+  const last=newestObservation(p,r.id);
   const d=getDraft(p.id,r.id);
   const s=d?d.superPrice:(last?.superPrice??"");
   const sp=d?d.saverPrice:(last?.saverPrice??"");
@@ -168,7 +190,7 @@ $("screenshotInput").onchange=async e=>{
 };
 
 function showHistory(p,r){
-  const rows=(p.observations||[]).filter(o=>o.routeId===r.id).sort((a,b)=>String(a.queriedAt).localeCompare(String(b.queriedAt)));
+  const rows=(p.observations||[]).filter(o=>o.routeId===r.id).sort((a,b)=>observationTime(a.queriedAt)-observationTime(b.queriedAt));
   $("historyTitle").textContent=`${r.destination} · Preisverlauf`;
   $("historyTable").innerHTML=rows.length?`<table><thead><tr><th>Zeitpunkt</th><th>Super Sparpreis</th><th>Sparpreis</th><th>Auslastung</th></tr></thead><tbody>${rows.slice().reverse().map(o=>`<tr><td>${dateTimeDE(o.queriedAt)}</td><td>${euro(o.superPrice)}</td><td>${euro(o.saverPrice)}</td><td>${escapeHtml(o.load||"–")}</td></tr>`).join("")}</tbody></table>`:"Noch keine Daten.";
   drawChart(rows);$("historyDialog").showModal();
