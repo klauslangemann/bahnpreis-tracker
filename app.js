@@ -1,10 +1,10 @@
 
 const DEFAULT_ROUTES = [
-  {code:"HAM", name:"Hamburg Hbf", time:"08:23"},
-  {code:"BER", name:"Berlin Hbf", time:"09:26"},
-  {code:"MUC", name:"München Hbf", time:"10:18"},
-  {code:"FRA", name:"Frankfurt (M) Flughafen Fernbf", time:"08:37"},
-  {code:"HAJ", name:"Hannover Hbf", time:"09:14"}
+  {code:"HAM", name:"Hamburg Hbf", time:"", train:""},
+  {code:"BER", name:"Berlin Hbf", time:"", train:""},
+  {code:"MUC", name:"München Hbf", time:"", train:""},
+  {code:"FRA", name:"Frankfurt (M) Flughafen Fernbf", time:"", train:""},
+  {code:"HAJ", name:"Hannover Hbf", time:"", train:""}
 ];
 
 const STORAGE_RECORDS = "bahnpreis_records_v4";
@@ -71,8 +71,8 @@ function formatPrice(value) {
 
 function buildDbSearchUrl(route) {
   const selectedDate = travelDate.value;
-  const selectedTime = route.time || "08:00";
-  const departure = selectedDate
+  const selectedTime = route.time || "";
+  const departure = selectedDate && selectedTime
     ? `${selectedDate}T${selectedTime}:00`
     : "";
 
@@ -91,6 +91,10 @@ function openDbSearch(route) {
     travelDate.focus();
     return;
   }
+  if (!route.time) {
+    alert("Bitte für diese Verbindung zuerst eine Abfahrtszeit eintragen.");
+    return;
+  }
   const url = buildDbSearchUrl(route);
   window.open(url, "_blank", "noopener,noreferrer");
 }
@@ -104,7 +108,14 @@ function renderRoutes() {
       <div class="route-head">
         <span class="route-code">${escapeHtml(route.code)}</span>
         <span class="route-name">${escapeHtml(route.name)}</span>
-        <span class="route-time">${escapeHtml(route.time)}</span>
+      </div>
+      <div class="connection-fields">
+        <label>Abfahrtszeit
+          <input type="time" data-route-time="${index}" value="${escapeHtml(route.time || "")}">
+        </label>
+        <label>Zugnummer
+          <input type="text" data-route-train="${index}" value="${escapeHtml(route.train || "")}" placeholder="z. B. ICE 787">
+        </label>
       </div>
       <div class="route-fields">
         <label>Günstigster Preis (€)
@@ -165,6 +176,7 @@ function renderRecords() {
       <td>${new Date(record.queryTime).toLocaleString("de-DE")}</td>
       <td>${record.travelDate ? new Date(record.travelDate + "T12:00").toLocaleDateString("de-DE") : "–"}</td>
       <td>${escapeHtml(record.code)}</td>
+      <td>${escapeHtml(record.train || "–")}</td>
       <td>${formatPrice(record.price)}</td>
       <td>${escapeHtml(record.type || "–")}</td>
       <td>${escapeHtml(record.load || "–")}</td>
@@ -253,6 +265,7 @@ $("entryForm").addEventListener("submit", event => {
       code: route.code,
       route: route.name,
       time: route.time,
+      train: route.train || "",
       price: parsePrice(get("price")),
       type: get("type"),
       load: get("load"),
@@ -285,6 +298,21 @@ routesContainer.addEventListener("click", event => {
   if (route) openDbSearch(route);
 });
 
+routesContainer.addEventListener("change", event => {
+  const timeIndex = event.target.dataset.routeTime;
+  const trainIndex = event.target.dataset.routeTrain;
+
+  if (timeIndex !== undefined) {
+    routes[Number(timeIndex)].time = event.target.value;
+    localStorage.setItem(STORAGE_ROUTES, JSON.stringify(routes));
+  }
+
+  if (trainIndex !== undefined) {
+    routes[Number(trainIndex)].train = event.target.value.trim();
+    localStorage.setItem(STORAGE_ROUTES, JSON.stringify(routes));
+  }
+});
+
 
 recordsBody.addEventListener("click", event => {
   const id = event.target.dataset.delete;
@@ -305,14 +333,14 @@ $("deleteAllBtn").addEventListener("click", () => {
 });
 
 $("settingsBtn").addEventListener("click", () => {
-  routesText.value = routes.map(r => `${r.code}|${r.name}|${r.time}`).join("\\n");
+  routesText.value = routes.map(r => `${r.code}|${r.name}|${r.time || ""}|${r.train || ""}`).join("\\n");
   settingsDialog.showModal();
 });
 
 $("saveRoutesBtn").addEventListener("click", event => {
   const parsed = routesText.value.split("\\n").map(line => {
-    const [code,name,time] = line.split("|").map(x => (x||"").trim());
-    return {code,name,time};
+    const [code,name,time,train] = line.split("|").map(x => (x||"").trim());
+    return {code,name,time,train};
   }).filter(r => r.code && r.name);
   if (!parsed.length) {
     event.preventDefault();
@@ -332,8 +360,8 @@ function csvEscape(value) {
 }
 $("exportBtn").addEventListener("click", () => {
   if (!records.length) { alert("Noch keine Daten vorhanden."); return; }
-  const header = ["Abfragezeit","Reisedatum","Code","Verbindung","Uhrzeit","Preis_EUR","Preisart","Auslastung","Bemerkung"];
-  const rows = records.map(r => [r.queryTime,r.travelDate,r.code,r.route,r.time,r.price,r.type,r.load,r.note]);
+  const header = ["Abfragezeit","Reisedatum","Code","Verbindung","Uhrzeit","Zugnummer","Preis_EUR","Preisart","Auslastung","Bemerkung"];
+  const rows = records.map(r => [r.queryTime,r.travelDate,r.code,r.route,r.time,r.train || "",r.price,r.type,r.load,r.note]);
   const csv = "\\uFEFF" + [header,...rows].map(row => row.map(csvEscape).join(";")).join("\\n");
   const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
   const url = URL.createObjectURL(blob);
@@ -362,10 +390,10 @@ $("importInput").addEventListener("change", async event => {
     out.push(current); return out;
   };
   const imported = lines.slice(1).map((line,index) => {
-    const [qt,td,code,route,time,price,type,load,note] = parseLine(line);
+    const [qt,td,code,route,time,train,price,type,load,note] = parseLine(line);
     return {
       id: crypto.randomUUID ? crypto.randomUUID() : `import-${Date.now()}-${index}`,
-      queryTime:qt, travelDate:td, code, route, time, price, type, load, note
+      queryTime:qt, travelDate:td, code, route, time, train, price, type, load, note
     };
   }).filter(r => r.queryTime && r.code);
   records.push(...imported);

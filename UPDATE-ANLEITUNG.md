@@ -1,4 +1,4 @@
-# Version 4.1 auf GitHub aktualisieren
+# Version 4.2 auf GitHub aktualisieren
 
 1. ZIP-Datei entpacken.
 2. Im Repository `bahnpreis-tracker` auf **Add file** → **Upload files**.
@@ -38,3 +38,13 @@ Der Button übernimmt:
 Bitte vor dem Antippen immer zuerst das Reisedatum auswählen.
 
 Hinweis: Die DB kann die Struktur ihrer Buchungslinks ändern. Falls die Felder später nicht mehr vollständig vorausgefüllt werden, muss nur die Linkfunktion in `app.js` angepasst werden.
+
+
+## Neu in Version 4.2
+
+- Keine erfundenen Abfahrtszeiten mehr.
+- Abfahrtszeit ist bei jeder Verbindung direkt editierbar.
+- Zugnummer kann zusätzlich eingetragen werden.
+- Zeit und Zugnummer werden dauerhaft im Browser gespeichert.
+- Der DB-Suchbutton funktioniert erst, nachdem eine Zeit eingetragen wurde.
+- Beim Speichern einer Preisbeobachtung werden Zeit und Zugnummer mitgespeichert.
