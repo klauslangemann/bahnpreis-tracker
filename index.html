@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Bahnpreise">
+  <title>Bahnpreis-Tracker</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Bahnpreis-Tracker</h1>
+      <p>Manuelle Preisbeobachtung für mehrere Verbindungen.</p>
+    </div>
+    <button id="settingsBtn" class="secondary">Verbindungen</button>
+  </header>
+
+  <main>
+    <section class="notice">
+      <strong>Datensicherung:</strong>
+      Die Daten liegen lokal auf diesem Gerät. Exportiere mindestens einmal pro Woche eine CSV-Datei.
+    </section>
+
+    <section class="card">
+      <div class="grid two">
+        <label>
+          Reisedatum
+          <input id="travelDate" type="date">
+        </label>
+        <label>
+          Abfragezeit
+          <input id="queryTime" type="datetime-local">
+        </label>
+      </div>
+      <label class="top-gap">
+        Bemerkung zur Abfrage
+        <input id="batchNote" type="text" placeholder="z. B. Ferienbeginn, sehr hohe Nachfrage">
+      </label>
+    </section>
+
+    <form id="entryForm">
+      <div id="routes"></div>
+      <section class="card actions">
+        <button type="submit" class="primary">Abfrage speichern</button>
+        <button type="button" id="clearInputsBtn" class="secondary">Eingaben leeren</button>
+      </section>
+    </form>
+
+    <section class="card">
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Gespeicherte Abfragen</h2>
+          <p id="recordCount">0 Datensätze</p>
+        </div>
+        <div class="button-row">
+          <button id="exportBtn" class="secondary">CSV sichern</button>
+          <label class="file-button secondary">
+            CSV laden
+            <input id="importInput" type="file" accept=".csv,text/csv">
+          </label>
+          <button id="deleteAllBtn" class="danger">Alle löschen</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Abfrage</th>
+              <th>Reise</th>
+              <th>Verbindung</th>
+              <th>Super</th>
+              <th>Spar</th>
+              <th>Flex</th>
+              <th>Auslastung</th>
+              <th>Notiz</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" id="settingsForm">
+      <h2>Verbindungen bearbeiten</h2>
+      <p>Eine Verbindung pro Zeile, zum Beispiel: Kassel-Wilhelmshöhe → Hamburg Hbf, 08:23</p>
+      <textarea id="routesText" rows="10"></textarea>
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary">Abbrechen</button>
+        <button id="saveRoutesBtn" value="default" class="primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js"></script>
+</body>
+</html>
