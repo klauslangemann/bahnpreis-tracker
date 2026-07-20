@@ -56,3 +56,39 @@ Direktes Öffnen aus der Dateien-App wird von iOS je nach Version nicht immer an
 Die OCR läuft lokal im Browser. Beim ersten Import werden über das Internet die
 Tesseract-OCR-Komponenten und die deutschen Sprachdaten geladen. Die Erkennung ist
 eine Testfunktion und sollte vor dem Speichern kontrolliert werden.
+
+
+## Drei Tarifpreise pro Screenshot
+
+Die Screenshot-Erkennung übernimmt nun getrennt:
+
+- Super Sparpreis
+- Sparpreis
+- Flexpreis
+
+Die drei Werte werden je Verbindung und Abfragezeit separat gespeichert.
+Für ältere Datensätze bleibt der bisher gespeicherte günstigste Preis weiterhin lesbar.
+Die Auswertung kann zwischen den drei Tarifarten und dem jeweils günstigsten Preis umgeschaltet werden.
+
+Wichtig: Die OCR-Zuordnung bitte kurz prüfen. Wenn auf dem Screenshot zusätzliche
+Euro-Beträge stehen, kann eine manuelle Korrektur erforderlich sein.
+
+
+## Änderung: zwei Preise und korrigierter DB-Link
+
+Gespeichert werden nur noch:
+
+- Super Sparpreis
+- Sparpreis
+
+Der Flexpreis wurde entfernt, weil er für die Beobachtung nicht benötigt wird.
+
+Der DB-Link verwendet nun die aktuelle Fahrplan-Suche der Deutschen Bahn und
+übergibt Start, Ziel, Reisedatum und Abfahrtszeit. Die frühere URL über
+`/buchung/start` konnte einzelne Angaben ignorieren und dadurch eine falsche
+Verbindung anzeigen.
+
+Hinweis: Die DB-Seite öffnet die Suche zur gespeicherten Abfahrtszeit. Eine
+bestimmte Zugnummer lässt sich über einen stabilen öffentlichen DB-Link nicht
+zuverlässig direkt auswählen. Die gewünschte Verbindung sollte jedoch in der
+Trefferliste an der passenden Uhrzeit erscheinen.

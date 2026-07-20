@@ -86,7 +86,14 @@
           <span class="eyebrow">Auswertung</span>
           <h2>Preisverlauf</h2>
         </div>
-        <select id="analysisRouteSelect" class="compact-select"></select>
+        <div class="analysis-selectors">
+  <select id="analysisRouteSelect" class="compact-select"></select>
+  <select id="analysisFareSelect" class="compact-select">
+    <option value="cheapest">Günstigster Preis</option>
+    <option value="superPrice">Super Sparpreis</option>
+    <option value="saverPrice">Sparpreis</option>
+  </select>
+</div>
       </div>
 
       <div id="routeStats" class="route-stats-grid"></div>
@@ -232,21 +239,18 @@
         </div>
         <img id="ocrPreviewImage" class="ocr-preview" alt="Ausgewählter Screenshot">
 
-        <div class="two-column-grid">
+        
+        <div class="three-price-grid">
           <label class="field">
-            <span>Erkannter Preis</span>
-            <input id="ocrPrice" inputmode="decimal" placeholder="z. B. 29,99">
+            <span>Super Sparpreis</span>
+            <input id="ocrSuperPrice" inputmode="decimal" placeholder="z. B. 29,99">
           </label>
           <label class="field">
-            <span>Erkannte Preisart</span>
-            <select id="ocrFareType">
-              <option value="">–</option>
-              <option>Super Sparpreis</option>
-              <option>Sparpreis</option>
-              <option>Flexpreis</option>
-            </select>
+            <span>Sparpreis</span>
+            <input id="ocrSaverPrice" inputmode="decimal" placeholder="z. B. 39,99">
           </label>
         </div>
+
 
         <div id="ocrValidation" class="ocr-validation"></div>
 

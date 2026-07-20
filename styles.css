@@ -62,7 +62,7 @@ h3 { margin: 0; font-size: 1rem; }
 }
 .progress-labels strong { color: #172033; }
 .metrics-grid {
-  display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 10px; margin-top: 18px;
 }
 .metric {
@@ -108,7 +108,7 @@ input:focus, select:focus {
 .save-row { margin-top: 16px; }
 .compact-select { width: auto; max-width: 260px; }
 .route-stats-grid {
-  display: grid; grid-template-columns: repeat(4, minmax(0,1fr));
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 10px; margin: 14px 0 16px;
 }
 .route-stat {
@@ -117,7 +117,7 @@ input:focus, select:focus {
 .route-stat span { color: #6b7280; font-size: .74rem; display: block; }
 .route-stat strong { margin-top: 4px; display: block; }
 canvas { display: block; width: 100%; max-width: 100%; }
-.button-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.button-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
 .file-button { text-align: center; }
 .file-button input { display: none; }
 .helper-text { margin: 12px 0 0; color: #6b7280; font-size: .8rem; }
@@ -245,4 +245,26 @@ dialog::backdrop { background: rgba(20,26,38,.4); backdrop-filter: blur(4px); }
 }
 @media (max-width: 700px) {
   .screenshot-panel { align-items: stretch; flex-direction: column; }
+}
+
+.analysis-selectors {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.three-price-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 10px;
+}
+.route-input-grid.three-prices {
+  grid-template-columns: repeat(3, minmax(0,1fr));
+}
+@media (max-width: 700px) {
+  .three-price-grid { grid-template-columns: 1fr; }
+  .route-input-grid.three-prices { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .route-input-grid.three-prices { grid-template-columns: 1fr; }
 }

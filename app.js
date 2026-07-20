@@ -157,19 +157,14 @@ function renderRoutes() {
         </div>
         <button type="button" class="db-button" data-db-route="${index}">Bei DB suchen</button>
       </div>
-      <div class="route-input-grid">
-        <label class="field price-field">
-          <span>Günstigster Preis</span>
-          <input inputmode="decimal" data-entry-price="${route.id}" placeholder="z. B. 29,99">
+      <div class="route-input-grid three-prices">
+        <label class="field">
+          <span>Super Sparpreis</span>
+          <input inputmode="decimal" data-entry-super="${route.id}" placeholder="z. B. 29,99">
         </label>
         <label class="field">
-          <span>Preisart</span>
-          <select data-entry-type="${route.id}">
-            <option value="">–</option>
-            <option>Super Sparpreis</option>
-            <option>Sparpreis</option>
-            <option>Flexpreis</option>
-          </select>
+          <span>Sparpreis</span>
+          <input inputmode="decimal" data-entry-saver="${route.id}" placeholder="z. B. 39,99">
         </label>
         <label class="field">
           <span>Auslastung</span>
@@ -188,13 +183,36 @@ function renderRoutes() {
 }
 
 function buildDbUrl(project, route) {
-  const departure = project.travelDate && route.time ? `${project.travelDate}T${route.time}:00` : "";
+  const origin = String(project.origin || "").trim();
+  const destination = String(route.destination || "").trim();
+  const date = String(project.travelDate || "").trim();
+  const time = String(route.time || "").trim();
+
   const params = new URLSearchParams();
-  params.set("SO", project.origin);
-  params.set("ZO", route.destination);
-  if (departure) params.set("HD", departure);
-  params.set("D", "true");
-  return `https://www.bahn.de/buchung/start#?${params.toString()}`;
+  params.set("sts", "true");
+  params.set("so", origin);
+  params.set("zo", destination);
+
+  // The current DB journey planner resolves station names reliably through
+  // soid/zoid. The older /buchung/start link often ignored date or station data.
+  params.set("soid", `O=${origin}`);
+  params.set("zoid", `O=${destination}`);
+  params.set("sot", "ST");
+  params.set("zot", "ST");
+
+  if (date && time) {
+    params.set("hd", `${date}T${time}:00`);
+  }
+
+  params.set("hza", "D");      // Abfahrt, nicht Ankunft
+  params.set("ar", "false");
+  params.set("s", "true");
+  params.set("d", "false");
+  params.set("hz", "[]");
+  params.set("fm", "false");
+  params.set("bp", "false");
+
+  return `https://www.bahn.de/buchung/fahrplan/suche#${params.toString()}`;
 }
 
 $("routesContainer").addEventListener("click", event => {
@@ -228,12 +246,16 @@ $("saveObservationBtn").addEventListener("click", () => {
   const added = [];
 
   for (const route of project.routes) {
-    const priceInput = document.querySelector(`[data-entry-price="${route.id}"]`);
-    const typeInput = document.querySelector(`[data-entry-type="${route.id}"]`);
+    const superInput = document.querySelector(`[data-entry-super="${route.id}"]`);
+    const saverInput = document.querySelector(`[data-entry-saver="${route.id}"]`);
     const loadInput = document.querySelector(`[data-entry-load="${route.id}"]`);
-    const price = parsePrice(priceInput?.value);
 
-    if (price !== null || typeInput?.value || loadInput?.value) {
+    const superPrice = parsePrice(superInput?.value);
+    const saverPrice = parsePrice(saverInput?.value);
+    const availablePrices = [superPrice, saverPrice].filter(v => v !== null);
+    const cheapestPrice = availablePrices.length ? Math.min(...availablePrices) : null;
+
+    if (availablePrices.length || loadInput?.value) {
       added.push({
         id: uid(),
         queriedAt,
@@ -244,8 +266,12 @@ $("saveObservationBtn").addEventListener("click", () => {
         destination: route.destination,
         time: route.time,
         train: route.train,
-        price,
-        fareType: typeInput?.value || "",
+        superPrice,
+        saverPrice,
+        price: cheapestPrice,
+        fareType: cheapestPrice === superPrice ? "Super Sparpreis" :
+                  cheapestPrice === saverPrice ? "Sparpreis" :
+                  ""
         load: loadInput?.value || "",
         note
       });
@@ -261,8 +287,8 @@ $("saveObservationBtn").addEventListener("click", () => {
   project.updatedAt = new Date().toISOString();
   saveState();
 
-  document.querySelectorAll("[data-entry-price]").forEach(el => el.value = "");
-  document.querySelectorAll("[data-entry-type]").forEach(el => el.value = "");
+  document.querySelectorAll("[data-entry-super]").forEach(el => el.value = "");
+  document.querySelectorAll("[data-entry-saver]").forEach(el => el.value = "");
   document.querySelectorAll("[data-entry-load]").forEach(el => el.value = "");
   $("batchNote").value = "";
 
@@ -283,6 +309,7 @@ function renderAnalysisSelector() {
 }
 
 $("analysisRouteSelect").addEventListener("change", renderAnalysis);
+$("analysisFareSelect")?.addEventListener("change", renderAnalysis);
 
 function renderAnalysis() {
   const project = activeProject();
@@ -297,8 +324,24 @@ function renderAnalysis() {
     return;
   }
 
+  const fareKey = $("analysisFareSelect")?.value || "cheapest";
   const values = project.observations
-    .filter(o => o.routeId === routeId && o.price !== null)
+    .filter(o => o.routeId === routeId)
+    .map(o => {
+      let selectedPrice = null;
+      if (fareKey === "cheapest") {
+        const candidates = [
+          o.superPrice ?? null,
+          o.saverPrice ?? null,
+          o.price ?? null
+        ].filter(v => v !== null && v !== undefined);
+        selectedPrice = candidates.length ? Math.min(...candidates.map(Number)) : null;
+      } else {
+        selectedPrice = o[fareKey] ?? null;
+      }
+      return { ...o, price: selectedPrice };
+    })
+    .filter(o => o.price !== null)
     .sort((a,b) => a.queriedAt.localeCompare(b.queriedAt));
 
   const prices = values.map(v => Number(v.price));
@@ -401,7 +444,7 @@ function renderHistory() {
         <span>${escapeHtml(items[0]?.note || "Keine Bemerkung")}</span>
       </div>
       <div class="history-prices">
-        ${items.map(i => `${escapeHtml(i.code)} ${formatPrice(i.price)}`).join("<br>")}
+        ${items.map(i => `${escapeHtml(i.code)} · SSP ${formatPrice(i.superPrice)} · SP ${formatPrice(i.saverPrice)}`).join("<br>")}
       </div>
     </div>
   `).join("");
@@ -592,10 +635,10 @@ $("exportProjectCsvBtn").addEventListener("click", () => {
     return;
   }
 
-  const header = ["Projekt_Reisedatum","Abfragezeit","Code","Start","Ziel","Abfahrt","Zugnummer","Preis_EUR","Preisart","Auslastung","Bemerkung"];
+  const header = ["Projekt_Reisedatum","Abfragezeit","Code","Start","Ziel","Abfahrt","Zugnummer","Super_Sparpreis_EUR","Sparpreis_EUR","Günstigster_Preis_EUR","Günstigster_Tarif","Auslastung","Bemerkung"];
   const rows = project.observations.map(o => [
     project.travelDate, o.queriedAt, o.code, o.origin, o.destination, o.time, o.train,
-    o.price ?? "", o.fareType, o.load, o.note
+    o.superPrice ?? "", o.saverPrice ?? "", o.price ?? "", o.fareType, o.load, o.note
   ]);
   const csv = "\uFEFF" + [header, ...rows].map(row => row.map(csvEscape).join(";")).join("\n");
   downloadBlob(csv, `bahnpreise_${project.travelDate}.csv`, "text/csv;charset=utf-8");
@@ -846,8 +889,8 @@ $("screenshotFileInput")?.addEventListener("change", async event => {
     const text = result?.data?.text || "";
     const parsed = parseDbScreenshotText(text, item.route);
     $("ocrRawText").textContent = text || "Kein Text erkannt.";
-    $("ocrPrice").value = parsed.price !== null ? parsed.price.toFixed(2).replace(".", ",") : "";
-    $("ocrFareType").value = parsed.fareType;
+    $("ocrSuperPrice").value = parsed.superPrice !== null ? parsed.superPrice.toFixed(2).replace(".", ",") : "";
+    $("ocrSaverPrice").value = parsed.saverPrice !== null ? parsed.saverPrice.toFixed(2).replace(".", ",") : "";
     renderOcrValidation(parsed, item.route);
 
     $("ocrProgressBox").hidden = true;
@@ -864,17 +907,45 @@ function parseDbScreenshotText(text, route) {
     .replace(/\u00a0/g, " ")
     .replace(/[Oo](?=\s*[,.]\s*\d{2}\s*€)/g, "0");
 
-  const priceMatches = [...normalized.matchAll(/(?:ab\s*)?(\d{1,3}(?:[.,]\d{2}))\s*€/gi)]
-    .map(match => Number(match[1].replace(",", ".")))
-    .filter(value => Number.isFinite(value) && value > 0 && value < 500);
+  const priceRegex = /(?:ab\s*)?(\d{1,3}(?:[.,]\d{2}))\s*€/gi;
+  const allMatches = [...normalized.matchAll(priceRegex)]
+    .map(match => ({
+      value: Number(match[1].replace(",", ".")),
+      index: match.index
+    }))
+    .filter(item => Number.isFinite(item.value) && item.value > 0 && item.value < 500);
 
-  const uniquePrices = [...new Set(priceMatches)];
-  const price = uniquePrices.length ? Math.min(...uniquePrices) : null;
+  const uniqueOrdered = [];
+  for (const item of allMatches) {
+    if (!uniqueOrdered.some(existing => existing.value === item.value)) uniqueOrdered.push(item);
+  }
 
-  let fareType = "";
-  if (/super\s*sparpreis/i.test(normalized)) fareType = "Super Sparpreis";
-  else if (/\bsparpreis\b/i.test(normalized)) fareType = "Sparpreis";
-  else if (/\bflexpreis\b/i.test(normalized)) fareType = "Flexpreis";
+  function nearestPriceToLabel(labelRegex) {
+    const match = labelRegex.exec(normalized);
+    labelRegex.lastIndex = 0;
+    if (!match || !uniqueOrdered.length) return null;
+    const center = match.index + match[0].length / 2;
+    const nearby = uniqueOrdered
+      .map(p => ({...p, distance: Math.abs(p.index - center)}))
+      .filter(p => p.distance < 220)
+      .sort((a,b) => a.distance - b.distance);
+    return nearby[0]?.value ?? null;
+  }
+
+  let superPrice = nearestPriceToLabel(/super\s*sparpreis/i);
+  let saverPrice = nearestPriceToLabel(/(?<!super\s)\bsparpreis\b/i);
+
+  const orderedValues = uniqueOrdered.map(p => p.value);
+
+  // Fallback: DB usually displays the three fares in the same visual order.
+  if (superPrice === null && orderedValues.length >= 1) superPrice = orderedValues[0];
+  if (saverPrice === null && orderedValues.length >= 2) saverPrice = orderedValues[1];
+
+  // If OCR order is odd, use ascending order as a second plausibility fallback.
+  const assigned = [superPrice, saverPrice].filter(v => v !== null);
+  if (assigned.length === 2 && superPrice > saverPrice) {
+    [superPrice, saverPrice] = [saverPrice, superPrice];
+  }
 
   const routeWords = route.destination
     .toLowerCase()
@@ -883,26 +954,37 @@ function parseDbScreenshotText(text, route) {
     .filter(word => word.length >= 4);
   const lower = normalized.toLowerCase();
   const destinationHits = routeWords.filter(word => lower.includes(word)).length;
-  const destinationMatch = routeWords.length ? destinationHits >= Math.min(1, routeWords.length) : false;
+  const destinationMatch = routeWords.length ? destinationHits >= 1 : false;
   const timeMatch = route.time ? lower.includes(route.time) : null;
   const trainMatch = route.train
     ? lower.replace(/\s/g, "").includes(route.train.toLowerCase().replace(/\s/g, ""))
     : null;
 
-  return { price, fareType, uniquePrices, destinationMatch, timeMatch, trainMatch };
+  return {
+    superPrice,
+    saverPrice,
+    uniquePrices: orderedValues,
+    destinationMatch,
+    timeMatch,
+    trainMatch
+  };
 }
 
 function renderOcrValidation(parsed, route) {
   const messages = [];
   let warnings = 0;
 
-  if (parsed.price !== null) {
-    messages.push(`✓ Preis erkannt: ${formatPrice(parsed.price)}`);
-    if (parsed.uniquePrices.length > 1) {
-      messages.push(`Hinweis: ${parsed.uniquePrices.length} Preise gefunden; übernommen wurde der niedrigste.`);
-    }
+  const detectedCount = [parsed.superPrice, parsed.saverPrice].filter(v => v !== null).length;
+  if (detectedCount) {
+    messages.push(`✓ ${detectedCount} von 2 Tarifpreisen erkannt.`);
+    messages.push(`Super Sparpreis: ${formatPrice(parsed.superPrice)} · Sparpreis: ${formatPrice(parsed.saverPrice)}`);
   } else {
-    messages.push("⚠ Kein eindeutiger Euro-Preis erkannt. Bitte manuell eintragen.");
+    messages.push("⚠ Keine eindeutigen Euro-Preise erkannt. Bitte manuell eintragen.");
+    warnings++;
+  }
+
+  if (parsed.uniquePrices.length > 2) {
+    messages.push(`Hinweis: Insgesamt ${parsed.uniquePrices.length} unterschiedliche Euro-Beträge gefunden. Bitte Zuordnung prüfen.`);
     warnings++;
   }
 
@@ -931,17 +1013,17 @@ function renderOcrValidation(parsed, route) {
 $("applyOcrBtn")?.addEventListener("click", () => {
   if (!currentOcrRoute) return;
   const routeId = currentOcrRoute.route.id;
-  const priceInput = document.querySelector(`[data-entry-price="${routeId}"]`);
-  const fareInput = document.querySelector(`[data-entry-type="${routeId}"]`);
-  if (!priceInput || !fareInput) {
+  const superInput = document.querySelector(`[data-entry-super="${routeId}"]`);
+  const saverInput = document.querySelector(`[data-entry-saver="${routeId}"]`);
+  if (!superInput || !saverInput) {
     alert("Die Eingabemaske für diese Verbindung wurde nicht gefunden.");
     return;
   }
 
-  priceInput.value = $("ocrPrice").value.trim();
-  fareInput.value = $("ocrFareType").value;
-  priceInput.scrollIntoView({ behavior: "smooth", block: "center" });
-  priceInput.focus();
+  superInput.value = $("ocrSuperPrice").value.trim();
+  saverInput.value = $("ocrSaverPrice").value.trim();
+  superInput.scrollIntoView({ behavior: "smooth", block: "center" });
+  superInput.focus();
   $("screenshotDialog").close();
   showToast(`Screenshot ${currentOcrRoute.route.code} zugeordnet`);
 });
