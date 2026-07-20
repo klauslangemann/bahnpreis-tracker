@@ -1,5 +1,5 @@
 
-const CACHE = "bahnpreis-tracker-v5-calendar";
+const CACHE = "bahnpreis-tracker-v5-screenshot";
 const ASSETS = ["./","./index.html","./styles.css","./app.js","./manifest.json","./icon.svg"];
 self.addEventListener("install", event => {
   self.skipWaiting();

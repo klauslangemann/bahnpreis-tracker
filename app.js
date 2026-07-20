@@ -100,6 +100,7 @@ function renderAll() {
   renderAnalysis();
   renderHistory();
   renderProjectList();
+  renderScreenshotPanel();
   $("queryTimestampLabel").textContent = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
 }
 
@@ -206,6 +207,12 @@ $("routesContainer").addEventListener("click", event => {
     alert("Bitte die Verbindung im Projekt bearbeiten und eine Abfahrtszeit eintragen.");
     return;
   }
+  localStorage.setItem("bahnpreis_tracker_pending_route", JSON.stringify({
+    projectId: project.id,
+    routeId: route.id,
+    openedAt: new Date().toISOString()
+  }));
+  renderScreenshotPanel();
   window.open(buildDbUrl(project, route), "_blank", "noopener,noreferrer");
 });
 
@@ -751,6 +758,204 @@ if (reminderButton) {
     showToast("Kalenderdatei erstellt");
   });
 }
+
+
+let currentOcrRoute = null;
+let currentOcrImageUrl = null;
+
+function getPendingScreenshotRoute() {
+  try {
+    const pending = JSON.parse(localStorage.getItem("bahnpreis_tracker_pending_route"));
+    if (!pending) return null;
+    const project = state.projects.find(p => p.id === pending.projectId);
+    const route = project?.routes.find(r => r.id === pending.routeId);
+    if (!project || !route) return null;
+    return { pending, project, route };
+  } catch {
+    return null;
+  }
+}
+
+function renderScreenshotPanel() {
+  const panel = $("screenshotImportPanel");
+  if (!panel) return;
+  const item = getPendingScreenshotRoute();
+  if (!item || item.project.id !== state.activeProjectId) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  $("pendingScreenshotRoute").textContent =
+    `${item.route.code} – ${item.route.destination} · ${item.route.train || "ohne Zugnummer"} · ${item.route.time || "ohne Zeit"}`;
+}
+
+$("chooseScreenshotBtn")?.addEventListener("click", () => {
+  const item = getPendingScreenshotRoute();
+  if (!item) {
+    alert("Bitte zuerst bei einer Verbindung auf „Bei DB suchen“ tippen.");
+    return;
+  }
+  $("screenshotFileInput").click();
+});
+
+$("screenshotFileInput")?.addEventListener("change", async event => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+
+  const item = getPendingScreenshotRoute();
+  if (!item) {
+    alert("Die zuletzt geöffnete Verbindung konnte nicht mehr ermittelt werden.");
+    return;
+  }
+
+  currentOcrRoute = item;
+  if (currentOcrImageUrl) URL.revokeObjectURL(currentOcrImageUrl);
+  currentOcrImageUrl = URL.createObjectURL(file);
+
+  $("screenshotDialog").showModal();
+  $("ocrProgressBox").hidden = false;
+  $("ocrResultBox").hidden = true;
+  $("ocrProgressBar").style.width = "2%";
+  $("ocrProgressTitle").textContent = "Screenshot wird gelesen …";
+  $("ocrProgressText").textContent = "Beim ersten Mal werden die OCR-Sprachdaten geladen.";
+  $("ocrPreviewImage").src = currentOcrImageUrl;
+  $("ocrAssignedRoute").textContent =
+    `${item.route.code} – ${item.route.destination} · ${item.route.time || "Zeit fehlt"}`;
+
+  try {
+    if (!window.Tesseract) {
+      throw new Error("Die OCR-Bibliothek konnte nicht geladen werden. Bitte Internetverbindung prüfen.");
+    }
+
+    const result = await Tesseract.recognize(file, "deu", {
+      logger: message => {
+        const progress = Math.round((message.progress || 0) * 100);
+        $("ocrProgressBar").style.width = `${Math.max(3, progress)}%`;
+        const labels = {
+          "loading tesseract core": "OCR-Modul wird geladen",
+          "initializing tesseract": "OCR wird initialisiert",
+          "loading language traineddata": "Deutsche Sprachdaten werden geladen",
+          "initializing api": "Texterkennung wird vorbereitet",
+          "recognizing text": "Text und Preise werden erkannt"
+        };
+        $("ocrProgressText").textContent = `${labels[message.status] || message.status || "Verarbeitung"}${progress ? ` · ${progress} %` : ""}`;
+      }
+    });
+
+    const text = result?.data?.text || "";
+    const parsed = parseDbScreenshotText(text, item.route);
+    $("ocrRawText").textContent = text || "Kein Text erkannt.";
+    $("ocrPrice").value = parsed.price !== null ? parsed.price.toFixed(2).replace(".", ",") : "";
+    $("ocrFareType").value = parsed.fareType;
+    renderOcrValidation(parsed, item.route);
+
+    $("ocrProgressBox").hidden = true;
+    $("ocrResultBox").hidden = false;
+  } catch (error) {
+    $("ocrProgressTitle").textContent = "Screenshot konnte nicht gelesen werden";
+    $("ocrProgressText").textContent = error?.message || "Unbekannter Fehler";
+    $("ocrProgressBar").style.width = "0%";
+  }
+});
+
+function parseDbScreenshotText(text, route) {
+  const normalized = String(text || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/[Oo](?=\s*[,.]\s*\d{2}\s*€)/g, "0");
+
+  const priceMatches = [...normalized.matchAll(/(?:ab\s*)?(\d{1,3}(?:[.,]\d{2}))\s*€/gi)]
+    .map(match => Number(match[1].replace(",", ".")))
+    .filter(value => Number.isFinite(value) && value > 0 && value < 500);
+
+  const uniquePrices = [...new Set(priceMatches)];
+  const price = uniquePrices.length ? Math.min(...uniquePrices) : null;
+
+  let fareType = "";
+  if (/super\s*sparpreis/i.test(normalized)) fareType = "Super Sparpreis";
+  else if (/\bsparpreis\b/i.test(normalized)) fareType = "Sparpreis";
+  else if (/\bflexpreis\b/i.test(normalized)) fareType = "Flexpreis";
+
+  const routeWords = route.destination
+    .toLowerCase()
+    .replace(/[()[\],.-]/g, " ")
+    .split(/\s+/)
+    .filter(word => word.length >= 4);
+  const lower = normalized.toLowerCase();
+  const destinationHits = routeWords.filter(word => lower.includes(word)).length;
+  const destinationMatch = routeWords.length ? destinationHits >= Math.min(1, routeWords.length) : false;
+  const timeMatch = route.time ? lower.includes(route.time) : null;
+  const trainMatch = route.train
+    ? lower.replace(/\s/g, "").includes(route.train.toLowerCase().replace(/\s/g, ""))
+    : null;
+
+  return { price, fareType, uniquePrices, destinationMatch, timeMatch, trainMatch };
+}
+
+function renderOcrValidation(parsed, route) {
+  const messages = [];
+  let warnings = 0;
+
+  if (parsed.price !== null) {
+    messages.push(`✓ Preis erkannt: ${formatPrice(parsed.price)}`);
+    if (parsed.uniquePrices.length > 1) {
+      messages.push(`Hinweis: ${parsed.uniquePrices.length} Preise gefunden; übernommen wurde der niedrigste.`);
+    }
+  } else {
+    messages.push("⚠ Kein eindeutiger Euro-Preis erkannt. Bitte manuell eintragen.");
+    warnings++;
+  }
+
+  if (parsed.destinationMatch) messages.push(`✓ Ziel passt zu ${route.destination}.`);
+  else {
+    messages.push(`⚠ Ziel „${route.destination}“ wurde im Text nicht eindeutig gefunden.`);
+    warnings++;
+  }
+
+  if (parsed.timeMatch === true) messages.push(`✓ Abfahrtszeit ${route.time} wurde gefunden.`);
+  if (parsed.timeMatch === false) {
+    messages.push(`⚠ Abfahrtszeit ${route.time} wurde nicht gefunden.`);
+    warnings++;
+  }
+
+  if (parsed.trainMatch === true) messages.push(`✓ Zugnummer ${route.train} wurde gefunden.`);
+  if (parsed.trainMatch === false) {
+    messages.push(`Hinweis: Zugnummer ${route.train} wurde nicht eindeutig gefunden.`);
+  }
+
+  const box = $("ocrValidation");
+  box.innerHTML = messages.join("<br>");
+  box.className = `ocr-validation ${warnings ? "warning" : "good"}`;
+}
+
+$("applyOcrBtn")?.addEventListener("click", () => {
+  if (!currentOcrRoute) return;
+  const routeId = currentOcrRoute.route.id;
+  const priceInput = document.querySelector(`[data-entry-price="${routeId}"]`);
+  const fareInput = document.querySelector(`[data-entry-type="${routeId}"]`);
+  if (!priceInput || !fareInput) {
+    alert("Die Eingabemaske für diese Verbindung wurde nicht gefunden.");
+    return;
+  }
+
+  priceInput.value = $("ocrPrice").value.trim();
+  fareInput.value = $("ocrFareType").value;
+  priceInput.scrollIntoView({ behavior: "smooth", block: "center" });
+  priceInput.focus();
+  $("screenshotDialog").close();
+  showToast(`Screenshot ${currentOcrRoute.route.code} zugeordnet`);
+});
+
+function closeOcrDialog() {
+  $("screenshotDialog")?.close();
+}
+$("closeScreenshotDialogBtn")?.addEventListener("click", closeOcrDialog);
+$("cancelOcrBtn")?.addEventListener("click", closeOcrDialog);
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) renderScreenshotPanel();
+});
+window.addEventListener("focus", renderScreenshotPanel);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));

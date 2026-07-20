@@ -42,3 +42,17 @@ Auf iPhone/iPad:
 5. Dort „Alle hinzufügen“ wählen.
 
 Direktes Öffnen aus der Dateien-App wird von iOS je nach Version nicht immer angeboten.
+
+
+## Screenshot-Erkennung (Testversion)
+
+1. Bei einer Verbindung auf „Bei DB suchen“ tippen.
+2. Auf der DB-Seite einen Screenshot aufnehmen.
+3. Zurück zum Bahnpreis-Tracker wechseln.
+4. „Screenshot auswählen“ tippen und das gerade aufgenommene Bild auswählen.
+5. Die App ordnet den Screenshot automatisch der zuletzt geöffneten Verbindung zu.
+6. Preis und Preisart prüfen und in die Eingabemaske übernehmen.
+
+Die OCR läuft lokal im Browser. Beim ersten Import werden über das Internet die
+Tesseract-OCR-Komponenten und die deutschen Sprachdaten geladen. Die Erkennung ist
+eine Testfunktion und sollte vor dem Speichern kontrolliert werden.

@@ -63,6 +63,16 @@
         <input id="batchNote" type="text" placeholder="optional, z. B. Ferienbeginn">
       </label>
 
+      <div id="screenshotImportPanel" class="screenshot-panel" hidden>
+        <div>
+          <span class="eyebrow">Zuletzt bei DB geöffnet</span>
+          <strong id="pendingScreenshotRoute">–</strong>
+          <p>Wähle jetzt den aufgenommenen Screenshot aus. Er wird automatisch dieser Verbindung zugeordnet.</p>
+        </div>
+        <button id="chooseScreenshotBtn" type="button" class="button button-primary">Screenshot auswählen</button>
+      </div>
+      <input id="screenshotFileInput" type="file" accept="image/*" hidden>
+
       <div id="routesContainer" class="routes-stack"></div>
 
       <div class="save-row">
@@ -199,7 +209,62 @@
     </form>
   </dialog>
 
+
+  <dialog id="screenshotDialog">
+    <form class="dialog-form" onsubmit="return false;">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Screenshot-Erkennung</span>
+          <h2>Ergebnis prüfen</h2>
+        </div>
+        <button type="button" id="closeScreenshotDialogBtn" class="icon-button">×</button>
+      </div>
+
+      <div id="ocrProgressBox" class="ocr-progress-box">
+        <strong id="ocrProgressTitle">Screenshot wird gelesen …</strong>
+        <div class="progress-track"><div id="ocrProgressBar" class="progress-bar"></div></div>
+        <span id="ocrProgressText">OCR wird vorbereitet.</span>
+      </div>
+
+      <div id="ocrResultBox" hidden>
+        <div class="ocr-assignment">
+          Automatisch zugeordnet zu <strong id="ocrAssignedRoute">–</strong>
+        </div>
+        <img id="ocrPreviewImage" class="ocr-preview" alt="Ausgewählter Screenshot">
+
+        <div class="two-column-grid">
+          <label class="field">
+            <span>Erkannter Preis</span>
+            <input id="ocrPrice" inputmode="decimal" placeholder="z. B. 29,99">
+          </label>
+          <label class="field">
+            <span>Erkannte Preisart</span>
+            <select id="ocrFareType">
+              <option value="">–</option>
+              <option>Super Sparpreis</option>
+              <option>Sparpreis</option>
+              <option>Flexpreis</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="ocrValidation" class="ocr-validation"></div>
+
+        <details class="ocr-details">
+          <summary>Erkannten Text anzeigen</summary>
+          <pre id="ocrRawText"></pre>
+        </details>
+
+        <div class="dialog-actions">
+          <button type="button" id="cancelOcrBtn" class="button button-light">Abbrechen</button>
+          <button type="button" id="applyOcrBtn" class="button button-primary">In Eingabemaske übernehmen</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
